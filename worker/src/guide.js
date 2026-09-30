@@ -58,6 +58,7 @@ h1{font-size:32px;font-weight:800;letter-spacing:-.03em;margin:0;line-height:1.1
 h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
 h3{font-size:14px;font-weight:700;margin:18px 0 6px}h3 small{font-weight:500;color:var(--muted);font-size:12px}
 ul{margin:4px 0 8px;padding-left:1.1em}li{margin:4px 0}.muted{color:var(--muted)}
+a{color:var(--accent)}
 .c-tashkent{--city:#3b82f6}.c-samarkand{--city:#0d9488}.c-bukhara{--city:#d97706}.c-khiva{--city:#c2410c}
 .city{border-top:5px solid var(--city)}.city-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.city h2{color:var(--city)}
 .table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}
