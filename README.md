@@ -17,8 +17,8 @@ Everything is behind a password sign-in (one account). All pages work offline af
 
 ## The app (/app)
 
-- All "now" logic uses Tashkent time (UTC+5), not the phone's time. To test another moment, add
-  `?at=2026-10-02T12:40` (Tashkent time) to the URL, for example `/app?at=2026-10-05T08:30#day/2026-10-05`.
+- All "now" logic uses Tashkent time (UTC+5), not the phone's time, except on days listed in `zones`. To test
+  another moment, add `?at=2026-10-02T12:40` (that day's local time) to the URL, for example `/app?at=2026-10-05T08:30#day/2026-10-05`.
 - Tabs have their own URLs: `#now`, `#day/2026-10-02`, `#trip`, `#tools`.
 - In a Safari tab the tabs sit at the top, clear of Safari's address bar. When you open the app from the
   Home Screen ("Add to Home Screen"), the tabs move to the bottom. TOOLS → Navigation overrides this.
@@ -29,7 +29,12 @@ Everything is behind a password sign-in (one account). All pages work offline af
     (transport to the next stop, for example `Taxi 4 km · 10 min`), `book`, `links` and `id` (a stable id
     for skips; else the title is used);
   - on hotels: `phone`, `nameLocal`, `addressLocal`, `payment` (for example `50% prepaid`);
-  - on bookings: `refundUntil` (for example `2026-10-02T18:48`; else it is read from the note).
+  - on bookings: `refundUntil` (for example `2026-10-02T18:48`; else it is read from the note), `mode: "flight"`
+    for a flight (it is not counted as a train), and `duration` (for example `06:00`) when the arrival is in
+    another time zone;
+  - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
+    `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
+    clock until the day ends there. Every other day is in Tashkent time.
 
 ## Private data
 

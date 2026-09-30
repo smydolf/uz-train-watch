@@ -29,7 +29,7 @@ const FAST = ["HS", "В-СКОР"];
 // Trip data from KV. A watch entry: { date, from: "Khiva", to: "Tashkent", after?, before?, fastOnly?, priority?, why }.
 // Departure window is [after, before). priority: an alternative preferred over what is booked; alerts are marked ⭐.
 const EMPTY_TRIP = { start: null, end: null, startCity: "Tashkent", passengers: 2, bookings: [], hotels: [], events: [],
-  planned: [], watch: [], plan: {}, slips: [] };
+  planned: [], watch: [], plan: {}, slips: [], zones: {} };
 async function loadTrip(env) {
   const t = { ...EMPTY_TRIP, ...((await env.STATE.get("trip", "json")) ?? {}) };
   t.legs = t.watch.map((w) => ({ date: w.date, from: STATIONS[w.from], to: STATIONS[w.to], after: w.after ?? "00:00",

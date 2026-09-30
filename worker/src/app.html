@@ -265,7 +265,8 @@ const CACHE = "uz-trip-v1"; // the service worker (/sw.js) uses the same cache
 const TZ_MIN = 300; // Asia/Tashkent is UTC+5 all year: no daylight saving
 const FALLBACK_RATE = 3068; // UZS per 1 PLN, when the Worker has no rate yet
 const CITY = { Tashkent: "#60a5fa", Samarkand: "#2dd4bf", Bukhara: "#fbbf24", Khiva: "#fb923c" };
-const YR = { Tashkent: "41.311,69.280", Samarkand: "39.655,66.975", Bukhara: "39.775,64.420", Khiva: "41.378,60.360" };
+const YR = { Tashkent: "41.311,69.280", Samarkand: "39.655,66.975", Bukhara: "39.775,64.420", Khiva: "41.378,60.360",
+  Kraków: "50.062,19.937", Warsaw: "52.230,21.011" };
 const DEFAULT_KIT = ["Passports", "Tonight's train e-ticket", "Headscarf for mosques", "Cash for the bazaar"];
 const KIND = { move: "move", food: "food", sight: "sight", tip: "note" }; // from the older "tag" field
 const TABS = ["now", "day", "trip", "tools"];
@@ -285,7 +286,16 @@ const dmT = (iso) => `${+iso.slice(8)} ${cap(MON[+iso.slice(5, 7) - 1])}`; // "2
 const range = (a, b) => (a.slice(0, 7) === b.slice(0, 7) ? `${+a.slice(8)}–${dm(b)}` : `${dm(a)} – ${dm(b)}`); // "2–4 OCT"
 const rangeT = (a, b) => range(a, b).replace(/[A-Z]{3}/g, cap); // "2–4 Oct"
 const tashMs = (date, hm = "00:00") => Date.parse(`${date}T${hm}:00Z`) - TZ_MIN * 60000;
-const tashIso = (ms) => new Date(ms + TZ_MIN * 60000).toISOString();
+const localIso = (ms, off) => new Date(ms + off * 60000).toISOString();
+const tashIso = (ms) => localIso(ms, TZ_MIN);
+// Days outside Uzbekistan keep their own clock: trip.json "zones", for example { "2026-10-01": "+02:00" } for the
+// flight day in Poland. Every other day is in Tashkent time. Minutes east of UTC, set by build().
+let ZONES = {};
+const zoneMin = (z) => { const m = String(z).match(/^([+-])(\d{2}):?(\d{2})$/); return m ? (m[1] === "-" ? -1 : 1) * (+m[2] * 60 + +m[3]) : null; };
+const dayMs = (date, hm = "00:00") => Date.parse(`${date}T${hm}:00Z`) - (ZONES[date] ?? TZ_MIN) * 60000;
+const utcText = (off) => `UTC${off < 0 ? "−" : "+"}${Math.floor(Math.abs(off) / 60)}${Math.abs(off) % 60 ? `:${String(Math.abs(off) % 60).padStart(2, "0")}` : ""}`;
+const isFlight = (b) => b.mode === "flight";
+const trainsOf = (t) => t.bookings.filter((b) => !isFlight(b));
 const tashHM = (ms) => tashIso(ms).slice(11, 16);
 const gmaps = (q) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
 const fileUrl = (f) => "/files/" + encodeURIComponent(f); // the same URLs as /trip, so both share the cached copy
@@ -301,12 +311,15 @@ const costLine = (x) => (x.cost || x.book ? `<div class="cost">${x.cost ? `<span
 const seatText = (b) => [b.car && `Car ${b.car}`, b.seat].filter(Boolean).join(" · ");
 const typing = () => !!document.activeElement?.matches?.("input, textarea");
 
-// Tashkent time now, or the time in ?at=2026-10-02T12:40 (read as Tashkent time) for testing.
+// Tashkent time now, or the time in ?at=2026-10-02T12:40 (read as that day's local time) for testing.
+// A day in ZONES runs on its own clock while it is that date there, or already that date in Tashkent.
 function clock() {
   const m = (new URLSearchParams(location.search).get("at") || "").match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}))?$/);
-  const ms = m ? tashMs(m[1], m[2] || "00:00") : Date.now();
-  const iso = tashIso(ms);
-  return { ms, date: iso.slice(0, 10), hm: iso.slice(11, 16), min: toMin(iso.slice(11, 16)), simulated: !!m };
+  const ms = m ? dayMs(m[1], m[2] || "00:00") : Date.now();
+  const tash = tashIso(ms).slice(0, 10);
+  const zone = Object.keys(ZONES).find((d) => d === tash || d === localIso(ms, ZONES[d]).slice(0, 10));
+  const off = zone ? ZONES[zone] : TZ_MIN, iso = localIso(ms, off);
+  return { ms, off, date: iso.slice(0, 10), hm: iso.slice(11, 16), min: toMin(iso.slice(11, 16)), simulated: !!m };
 }
 
 // ---- What the user changes on this phone ----
@@ -344,7 +357,8 @@ const ui = { tab: "now", day: null, openDay: null, notes: new Set(), kitEdit: fa
 
 // ---- Trip model ----
 function build(d) {
-  const t = { bookings: [], hotels: [], events: [], planned: [], plan: {}, slips: [], passengers: 2, ...d.trip };
+  const t = { bookings: [], hotels: [], events: [], planned: [], plan: {}, slips: [], zones: {}, passengers: 2, ...d.trip };
+  ZONES = Object.fromEntries(Object.entries(t.zones).map(([date, z]) => [date, zoneMin(z)]).filter(([, off]) => off != null));
   const dates = [];
   if (t.start && t.end) for (let x = t.start; x <= t.end; x = addDays(x, 1)) dates.push(x);
   const moves = [...t.bookings, ...t.planned].filter((b) => b.date && b.dep).sort((a, b) => (a.date + a.dep).localeCompare(b.date + b.dep));
@@ -370,9 +384,11 @@ function build(d) {
 }
 
 const trainItem = (b) => ({
-  src: "train", booking: b, time: b.dep, kind: "train", title: `Train to ${b.toCity}`, cost: seatText(b),
+  src: "train", booking: b, time: b.dep, kind: "train", title: `${isFlight(b) ? "Flight" : "Train"} to ${b.toCity}`, cost: seatText(b),
   note: [`${b.from} → ${b.to} · ${b.train}${b.kind ? `, ${b.kind}` : ""}.`, b.note].filter(Boolean).join(" "),
-  map: `${b.from} railway station`, leg: b.arr ? `Train ${b.train} · ${dur(b.dep, b.arr)}` : "",
+  map: isFlight(b) ? b.from : `${b.from} railway station`,
+  // "duration" when the arrival is in another time zone (a flight): dep and arr are each in local time.
+  leg: b.arr ? `${isFlight(b) ? "Flight" : "Train"} ${b.train} · ${b.duration ? dur("00:00", b.duration) : dur(b.dep, b.arr)}` : "",
   links: b.files?.length ? [{ label: "Open ticket", url: fileUrl(b.files[0]) }] : [],
 });
 
@@ -527,11 +543,11 @@ function renderNow(clk) {
   if (clk.date < t.start) return renderBefore(clk);
   if (clk.date > t.end) {
     return `<section class="card now"><div class="now-lbl"><i></i>TRIP OVER</div><div class="now-title">Welcome home</div>
-<div class="now-note">${rangeT(t.start, t.end)} · ${plural(t.bookings.length, "train")}. The whole trip is still in TRIP.</div>
+<div class="now-note">${rangeT(t.start, t.end)} · ${plural(trainsOf(t).length, "train")}. The whole trip is still in TRIP.</div>
 <div class="two"><a class="btn pri" href="#trip">Trip</a><a class="btn" href="/guide">Guide</a></div></section>`;
   }
   const day = M.days[clk.date], nn = nowNext(day, clk), city = M.stay[clk.date], w = weatherOf(city, clk.date);
-  return `<div class="hd"><span>DAY ${day.n} · ${wdm(clk.date)}</span><span>${esc(city.toUpperCase())}${w ? ` ${w.max}°` : ""}</span></div>`
+  return `<div class="hd"><span>DAY ${day.n} · ${wdm(clk.date)}${clk.off !== TZ_MIN ? ` · ${utcText(clk.off)}` : ""}</span><span>${esc(city.toUpperCase())}${w ? ` ${w.max}°` : ""}</span></div>`
     + nowCard(day, nn) + nextCard(day, nn, clk) + tonightCard(clk) + statTiles(day, nn, city, w);
 }
 
@@ -548,7 +564,7 @@ function nowCard(day, nn) {
 <div class="row"><div class="now-lbl"><i></i>${label}</div>${label === "TODAY" ? "" : `<button class="skip" data-act="skip" data-id="${esc(x.id)}">SKIP</button>`}</div>
 <div class="now-title">${esc(x.title)}</div>${costLine(x)}
 ${x.note ? `<div class="now-note clamp" data-act="clamp">${esc(x.note)}</div>` : ""}
-${x.maps ? `<div class="two"><a class="btn pri" href="${esc(x.maps.url)}" target="_blank" rel="noopener">${x.maps.label}</a><a class="btn" href="https://go.yandex/" target="_blank" rel="noopener">Yandex Go</a></div>` : ""}
+${x.maps ? `<div class="two"><a class="btn pri" href="${esc(x.maps.url)}" target="_blank" rel="noopener">${x.maps.label}</a>${day.date in ZONES ? "" : '<a class="btn" href="https://go.yandex/" target="_blank" rel="noopener">Yandex Go</a>'}</div>` : ""}
 ${x.links.length ? `<div class="extra">${x.links.map((l) => link(l, "btn out")).join("")}</div>` : ""}
 </section>`;
 }
@@ -574,7 +590,7 @@ function tonightCard(clk) {
   const { t } = M, date = clk.date;
   const b = t.bookings.find((b) => b.date === date && (b.arrDate > date || !b.arr || clk.hm < b.arr));
   if (b) {
-    const label = clk.hm < b.dep ? (b.dep >= "17:00" ? "TONIGHT" : "TODAY'S TRAIN") : `ON BOARD · ARRIVES ${esc(b.arr)}`;
+    const label = clk.hm < b.dep ? (b.dep >= "17:00" ? "TONIGHT" : isFlight(b) ? "TODAY'S FLIGHT" : "TODAY'S TRAIN") : `ON BOARD · ARRIVES ${esc(b.arr)}`;
     return `<section class="card tonight"><div><div class="lbl">${label}</div><div class="t20">${esc(b.dep)} → ${esc(b.toCity)}</div><div class="sub">${esc(seatText(b))}</div></div>${qrTile(b)}</section>`;
   }
   const h = t.hotels.find((h) => h.checkIn <= date && date < h.checkOut);
@@ -601,10 +617,10 @@ function statTiles(day, nn, city, w) {
 // Before the trip: a countdown to day 1 instead of Now and Next.
 function renderBefore(clk) {
   const { t } = M, fi = M.days[t.start].items.find((x) => x.time);
-  const diff = Math.max(0, tashMs(t.start, fi?.time || "00:00") - clk.ms);
+  const diff = Math.max(0, dayMs(t.start, fi?.time || "00:00") - clk.ms);
   const d = Math.floor(diff / 864e5), h = Math.floor((diff % 864e5) / 36e5), m = Math.floor((diff % 36e5) / 6e4);
   const days = Math.round((Date.parse(t.start) - Date.parse(clk.date)) / 864e5);
-  const b = t.bookings[0], warn = warnings(clk);
+  const b = trainsOf(t)[0], warn = warnings(clk);
   return `<div class="hd"><span>BEFORE THE TRIP</span><span>${days === 1 ? "TOMORROW" : `IN ${days} DAYS`}</span></div>
 <section class="card now">
 <div class="now-lbl"><i></i>STARTS · ${wdm(t.start)}${fi ? ` · ${esc(fi.time)}` : ""}</div>
@@ -616,7 +632,7 @@ ${warn.length ? warnCard(warn) : ""}
 ${b ? `<section class="card tonight"><div><div class="lbl">FIRST TRAIN · ${wdm(b.date)}</div><div class="t20">${esc(b.dep)} → ${esc(b.toCity)}</div><div class="sub">${esc(seatText(b))}</div></div>${qrTile(b)}</section>` : ""}
 <div class="stats">
 <a class="tile" href="#trip"><div class="k">DAYS</div><div class="v">${M.dates.length}</div><div class="u">${rangeT(t.start, t.end)}</div></a>
-<a class="tile" href="#trip"><div class="k">TRAINS</div><div class="v">${t.bookings.length}</div><div class="u">booked</div></a>
+<a class="tile" href="#trip"><div class="k">TRAINS</div><div class="v">${trainsOf(t).length}</div><div class="u">booked</div></a>
 <a class="tile" href="#trip"><div class="k">HOTELS</div><div class="v">${t.hotels.length}</div><div class="u">${M.gaps.length ? `${plural(M.gaps.length, "gap")}` : "no gaps"}</div></a>
 </div>`;
 }
@@ -651,11 +667,11 @@ ${x.leg ? `<div class="leg">${esc(x.leg)}</div>` : ""}</div>
 function renderTrip(clk) {
   const { t } = M, warn = warnings(clk);
   const trains = t.bookings.map(trainCard).join("") + (data.watch || []).map(watchCard).join("");
-  return `<div class="px6"><div class="sub13">${range(t.start, t.end)} · ${plural(t.bookings.length, "TRAIN")} · ${plural(t.hotels.length, "HOTEL")}</div><div class="h28">Trip</div></div>
+  return `<div class="px6"><div class="sub13">${range(t.start, t.end)} · ${plural(trainsOf(t).length, "TRAIN")} · ${plural(t.hotels.length, "HOTEL")}</div><div class="h28">Trip</div></div>
 <div class="bar px6">${M.segments.map((s) => `<i style="flex:${s.days};background:${color(s.city)}"></i>`).join("")}</div>
 ${warn.length ? warnCard(warn) : ""}
 <section class="card days"><div class="lbl"><span>DAYS</span><span>TAP FOR PLAN</span></div>${M.dates.map((d) => tripDay(d, clk)).join("")}</section>
-${trains ? `<div class="lbl sec">Trains</div>${trains}` : ""}
+${trains ? `<div class="lbl sec">${t.bookings.some(isFlight) ? "Trains &amp; flights" : "Trains"}</div>${trains}` : ""}
 <div class="lbl sec">Hotels</div>${hotelList()}
 ${papers()}`;
 }
@@ -803,7 +819,7 @@ function driverCard(clk) {
   const g = M.gaps.find((g) => g.from <= night && night < g.to);
   if (g) return `<section class="card warn"><div class="row lbl"><span>${when} · NO HOTEL</span><span>${range(g.from, g.to)}</span></div><div class="wt">Not booked: ${esc(g.city)}</div><div class="wx">${esc(g.text)}</div></section>`;
   const b = t.bookings.find((b) => b.date === night && b.arrDate > night);
-  if (b) return `<section class="card driver"><div class="row lbl"><span class="amber">${when} · NIGHT TRAIN</span><span>${range(night, b.arrDate)}</span></div>
+  if (b) return `<section class="card driver"><div class="row lbl"><span class="amber">${when} · ${isFlight(b) ? "NIGHT FLIGHT" : "NIGHT TRAIN"}</span><span>${range(night, b.arrDate)}</span></div>
 <div class="dsub">${esc(b.train)} · ${esc(seatText(b))}</div><div class="dru">${esc(b.dep)} ${esc(b.from)}</div><div class="dra">Arrives ${esc(b.arr)} · ${esc(b.to)}</div></section>`;
   return "";
 }

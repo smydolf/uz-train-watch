@@ -168,7 +168,7 @@ export function renderTrip({ bookings, events, legs, names, seats, trains, last,
     for (const x of plan) timeline.push({ time: x.time, html: slotHtml(x) });
     for (const b of bookings.filter((b) => b.date === date)) {
       const meta = [
-        `<span class="pill">🚆 ${esc(b.train)} · ${esc(b.kind)}</span>`,
+        `<span class="pill">${b.mode === "flight" ? "✈️" : "🚆"} ${esc(b.train)} · ${esc(b.kind)}</span>`,
         b.car && `<span class="pill">Car ${esc(b.car)} · ${esc(b.carClass)}</span>`,
         b.seat && `<span class="pill">💺 ${esc(b.seat)}</span>`,
         b.price && `<span class="pill">💰 ${esc(money(b.price, "UZS", rates))}${b.perPerson ? " per person" : ""}</span>`,
@@ -263,7 +263,7 @@ export function renderTrip({ bookings, events, legs, names, seats, trains, last,
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f4f4f7;--surface:#ffffff;--surface-2:#f0f0f4;--text:#15151a;--muted:#6e6e7a;--line:#e4e4ea;
+:root{--city:#8b8b96;--bg:#f4f4f7;--surface:#ffffff;--surface-2:#f0f0f4;--text:#15151a;--muted:#6e6e7a;--line:#e4e4ea;
 --accent:#4f46e5;--ok:#16a34a;--ok-bg:#dcfce7;--hit:#d97706;--hit-bg:#fef3c7;--event:#2563eb;--event-bg:#dbeafe;--shadow:0 1px 2px rgba(20,20,30,.04),0 8px 24px rgba(20,20,30,.06)}
 @media (prefers-color-scheme:dark){:root{--bg:#0d0d11;--surface:#17171d;--surface-2:#1f1f27;--text:#f1f1f4;--muted:#8d8d99;--line:#2a2a33;
 --accent:#818cf8;--ok:#4ade80;--ok-bg:#12301f;--hit:#fbbf24;--hit-bg:#3a2a0a;--event:#60a5fa;--event-bg:#14233d;--shadow:none}}
@@ -395,7 +395,7 @@ ${todayCard}
 <div class="cal">
   <div class="cal-title">Route · ${dayLabel(start, { month: "long", year: "numeric" })}</div>
   <div class="route-bar">${routeBar}</div>
-  <div class="strip">${dayCards.join("")}</div>
+  <div class="strip" style="grid-template-columns:repeat(${days.length},minmax(0,1fr))">${dayCards.join("")}</div>
   <div class="legend"><span class="mk booked">🎫 booked</span><span class="mk hit">★ preferred seats</span><span class="mk watch">☆ watching, sold out</span></div>
 </div>
 ${days.join("")}
