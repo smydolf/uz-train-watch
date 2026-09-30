@@ -45,7 +45,8 @@ function hotelCard(h, rates) {
   ].filter(Boolean).join("");
   const maps = h.address ? `<a class="maplink" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.name + ", " + h.address)}" target="_blank" rel="noopener">📍 ${esc(h.address)}</a>` : "";
   return `<div class="card hotel-card"><div class="card-head"><span class="badge ok">🏨 Hotel</span></div>
-    <div class="route">${esc(h.name)}</div>${maps}${h.addressLocal ? `<div class="station">${esc(h.addressLocal)}</div>` : ""}
+    <div class="route">${esc(h.name)}</div>${maps}
+    ${h.nameLocal || h.addressLocal ? `<div class="ru" title="Show this to the taxi driver">🇷🇺 <b>${esc(h.nameLocal ?? "")}</b><br>${esc(h.addressLocal ?? "")}</div>` : ""}
     <div class="pills">${meta}</div>${h.notes ? `<div class="note">${esc(h.notes)}</div>` : ""}${fileLinks(h.files)}</div>`;
 }
 const TAG_ICON = { sight: "🏛️", food: "🍽️", move: "🚆", tip: "💡" };
@@ -339,6 +340,7 @@ footer{color:var(--muted);font-size:13px;margin-top:24px}
 .wx{text-decoration:none;display:inline-block;margin-top:6px;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface-2);padding:3px 8px;border-radius:999px;white-space:nowrap}
 .wx.big{font-size:14px;padding:6px 12px;margin:0 0 12px;background:color-mix(in srgb,var(--surface) 80%,transparent);color:var(--text)}
 .dc-wx{font-size:12px;font-weight:600;color:var(--muted)}
+.ru{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--surface-2);font-size:15px;line-height:1.4}
 .hotel-card{border-left:4px solid var(--event-b)}.maplink{display:block;margin-top:4px;color:var(--accent);text-decoration:none;font-size:14px}
 .files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.file{font-size:13px;font-weight:600;padding:6px 10px;border-radius:10px;background:var(--surface-2);color:var(--accent);text-decoration:none}
 .timeline{display:flex;flex-direction:column;gap:10px}

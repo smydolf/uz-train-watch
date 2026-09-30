@@ -10,7 +10,7 @@
       "files": ["tickets/2030-05-01-tashkent-samarkand.pdf"] }
   ],
   "hotels": [
-    { "city": "Samarkand", "name": "Example Hotel", "address": "1 Example Street, Samarkand", "addressLocal": "Пример улица 1",
+    { "city": "Samarkand", "name": "Example Hotel", "address": "1 Example Street, Samarkand", "nameLocal": "Отель «Пример»", "addressLocal": "Самарканд, ул. Примерная, 1",
       "checkIn": "2030-05-01", "checkInTime": "14:00", "checkOut": "2030-05-03", "checkOutTime": "12:00",
       "paid": false, "price": { "amount": 120, "currency": "EUR" }, "notes": "Pay at the desk with a physical card.", "files": ["hotels/example-hotel.pdf"] }
   ],
