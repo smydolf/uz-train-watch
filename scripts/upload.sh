@@ -2,11 +2,9 @@
 # Upload the private trip data and files to the Worker's KV namespace.
 #   trip.json  -> KV key "trip"
 #   files/*    -> KV keys "file:<path>" (tickets, booking confirmations), served at /files/<path>
-# Neither trip.json nor files/ is in git. Run scripts/pull.sh first on a new machine.
-# Run from the repo root: scripts/upload.sh
+# Neither trip.json nor files/ is in git. Run from the repo root: scripts/upload.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[ -d worker/node_modules ] || (cd worker && npm ci --silent)
 node -e 'JSON.parse(require("fs").readFileSync("trip.json","utf8"))' # fail early on invalid JSON
 (cd worker && npx wrangler kv key put trip --path ../trip.json --binding STATE --remote)
 if [ -d files ]; then
