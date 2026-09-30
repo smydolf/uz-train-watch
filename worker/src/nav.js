@@ -11,7 +11,7 @@ export function nav(active) {
 @media (prefers-color-scheme:dark){.tn-bar{background:#0d0d11cc;border-color:#2a2a33}.tn-brand{color:#f1f1f4}.tn-link{color:#8d8d99}.tn-link.on{background:#f1f1f4;color:#0d0d11}}
 </style>
 <nav class="tn-bar" aria-label="Main"><div class="tn-in">
-  <a class="tn-brand" href="/trip">🇺🇿 Uzbekistan</a>
+  <a class="tn-brand" href="/trip">🇵🇱 Uzbekistan</a>
   ${link("/trip", "trip", "🚆 Trip")}${link("/guide", "guide", "📖 Guide")}<a href="/logout" class="tn-link" title="Sign out">⎋</a>
 </div></nav>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>`;
