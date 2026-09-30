@@ -20,7 +20,9 @@
 --teal:#2dd4bf;--amber:#fbbf24;--amber-bg:#2a2110;--amber-text:#d9c9a3;--amber-line:#4a3a1c;--red:#fca5a5;--red-bg:#3a1715;--red-text:#e8c4c1;--red-line:#7f2a25;
 --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--sans:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
 --sys:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
---st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
+--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px);--pocket:0px}
+/* From the Home Screen, iOS blurs a band about 40px deep under the transparent status bar. Keep that band empty. */
+.standalone{--pocket:40px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg);color-scheme:dark;-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100dvh;background:var(--bg);color:var(--text);font:400 15px/1.4 var(--sans);-webkit-font-smoothing:antialiased}
@@ -34,7 +36,7 @@ input:focus-visible{outline:0}
 .boot{min-height:100dvh;display:flex;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.08em;color:var(--off)}
 
 /* Tabs: a sticky segmented bar at the top in a Safari tab, a bottom bar when opened from the Home Screen. */
-.top{position:sticky;top:0;z-index:20;background:var(--bg);padding:calc(var(--st) + 8px) 16px 10px}
+.top{position:sticky;top:0;z-index:20;background:var(--bg);padding:calc(var(--st) + var(--pocket) + 8px) 16px 10px}
 .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--card);border-radius:14px;padding:4px}
 .seg a{height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.06em;color:var(--muted)}
 .seg a.on{background:var(--teal);color:var(--bg)}
@@ -44,10 +46,10 @@ input:focus-visible{outline:0}
 .bot a.on{color:var(--teal)}
 /* Safari's address bar sits over the bottom ~90px: keep that free in the browser. */
 .scr{display:flex;flex-direction:column;gap:12px;padding:8px 16px calc(96px + var(--sb))}
-.nav-bottom .scr{padding-top:calc(var(--st) + 14px);padding-bottom:calc(80px + var(--sb))}
-/* From the Home Screen the status bar is transparent: give it a solid backdrop, or iOS blurs the content that
-   scrolls under it. */
-.nav-bottom body::before{content:"";position:fixed;z-index:30;top:0;left:0;right:0;height:var(--st);background:var(--bg)}
+.nav-bottom .scr{padding-top:calc(var(--st) + var(--pocket) + 14px);padding-bottom:calc(80px + var(--sb))}
+/* A solid backdrop under the status bar and the blur band, so content that scrolls under them is hidden, not blurred. */
+.nav-bottom body::before{content:"";position:fixed;z-index:30;top:0;left:0;right:0;height:calc(var(--st) + var(--pocket));
+  background:linear-gradient(var(--bg) calc(100% - 10px),rgba(15,16,18,0))}
 .sim{display:block;text-align:center;font:600 11px var(--mono);letter-spacing:.06em;color:var(--amber);background:var(--amber-bg);border-radius:10px;padding:8px 10px}
 
 .card{background:var(--card);border-radius:24px;padding:18px 20px;display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -230,7 +232,7 @@ input:focus-visible{outline:0}
 .foot a,.foot button{color:var(--muted);text-decoration:underline;text-underline-offset:3px;font:inherit}
 
 /* Sign in */
-.login{min-height:100dvh;display:flex;flex-direction:column;gap:28px;padding:calc(var(--st) + 40px) 24px calc(24px + var(--sb))}
+.login{min-height:100dvh;display:flex;flex-direction:column;gap:28px;padding:calc(var(--st) + var(--pocket) + 40px) 24px calc(24px + var(--sb))}
 .lg-head{display:flex;flex-direction:column;gap:14px}
 .lg-kick{font:600 12px var(--mono);color:var(--muted);letter-spacing:.08em}
 .lg-title{font-size:46px;font-weight:600;letter-spacing:-.03em;line-height:1}
@@ -491,9 +493,10 @@ const clampDate = (date) => (date < M.t.start ? M.t.start : date > M.t.end ? M.t
 const countdown = (d) => (d <= 0 ? "NOW" : d < 60 ? `IN ${d} MIN` : `IN ${Math.floor(d / 60)} H${d % 60 ? ` ${d % 60} MIN` : ""}`);
 
 // ---- Render ----
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 function navBottom() {
   if (store.navMode !== "auto") return store.navMode === "bottom";
-  return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  return standalone();
 }
 
 function render() {
@@ -979,6 +982,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && M)
 matchMedia("(display-mode: standalone)").addEventListener?.("change", render);
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+document.documentElement.classList.toggle("standalone", standalone());
 readHash();
 loadData(true);
 setInterval(tick, 15000);
