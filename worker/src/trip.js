@@ -3,7 +3,18 @@
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const iso = (d) => d.toISOString().slice(0, 10);
 const addDays = (d, n) => new Date(d.getTime() + n * 86400000);
-const uzs = (n) => `${n.toLocaleString("en")} UZS`;
+const fmt = (n) => Math.round(n).toLocaleString("en");
+// "≈ 391 PLN · ≈ 1,200,000 UZS", from an amount in any currency. rates are units per 1 PLN.
+function money(amount, currency, rates) {
+  if (amount == null) return "";
+  if (!rates?.[currency]) return `${fmt(amount)} ${currency}`;
+  const pln = amount / rates[currency], uzsAmount = pln * rates.UZS;
+  const parts = [];
+  if (currency !== "PLN") parts.push(`≈ ${fmt(pln)} PLN`); else parts.push(`${fmt(amount)} PLN`);
+  if (currency === "UZS") parts.unshift(`${fmt(amount)} UZS`); else parts.push(`≈ ${fmt(Math.round(uzsAmount / 1000) * 1000)} UZS`);
+  if (currency !== "UZS" && currency !== "PLN") parts.push(`(${fmt(amount)} ${currency})`);
+  return parts.join(" · ");
+}
 const toMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
 const fmtDur = (min) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, "0")}m`;
 // "02:13" from the API, or computed from dep/arr for bookings (arrival may be the next day).
@@ -25,12 +36,12 @@ function wxHtml(w, cls = "wx", city = "Tashkent", date = "") {
 }
 const fileLinks = (files = []) => files.length
   ? `<div class="files">${files.map((f) => `<a class="file" href="/files/${encodeURIComponent(f)}" target="_blank">📎 ${esc(f.split("/").pop())}</a>`).join("")}</div>` : "";
-function hotelCard(h) {
+function hotelCard(h, rates) {
   const meta = [
     h.checkInTime && `<span class="pill">Check-in ${esc(h.checkInTime)}</span>`,
     h.checkOut && `<span class="pill">Check-out ${esc(h.checkOut.slice(8))}.${esc(h.checkOut.slice(5, 7))}${h.checkOutTime ? ` ${esc(h.checkOutTime)}` : ""}</span>`,
     h.paid != null && `<span class="pill">${h.paid ? "✅ Paid" : "💳 Pay at the hotel"}</span>`,
-    h.price && `<span class="pill">${esc(h.price)}</span>`,
+    h.price && `<span class="pill">💰 ${esc(typeof h.price === "object" ? money(h.price.amount, h.price.currency, rates) : h.price)}</span>`,
     h.phone && `<a class="pill" href="tel:${esc(h.phone.replace(/\s/g, ""))}">📞 ${esc(h.phone)}</a>`,
   ].filter(Boolean).join("");
   const maps = h.address ? `<a class="maplink" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.name + ", " + h.address)}" target="_blank" rel="noopener">📍 ${esc(h.address)}</a>` : "";
@@ -72,7 +83,7 @@ function citiesByDate(bookings, startCity, start, end) {
   return out;
 }
 
-export function renderTrip({ bookings, events, legs, names, seats, trains, last, passengers, tripStart, tripEnd, startCity, planned = [], nav = "", weather = {}, plan: PLAN = {}, hotels = [] }) {
+export function renderTrip({ bookings, events, legs, names, seats, trains, last, passengers, tripStart, tripEnd, startCity, planned = [], nav = "", weather = {}, plan: PLAN = {}, hotels = [], rates = null }) {
   if (!tripStart) return `<!doctype html><meta charset="utf-8"><body style="font:16px system-ui;padding:24px">${nav}<p>No trip data yet. Upload trip.json to KV (see README).</p>`;
   const moves = [...bookings, ...planned];
   seats ??= {}; trains ??= {};
@@ -155,7 +166,7 @@ export function renderTrip({ bookings, events, legs, names, seats, trains, last,
         `<span class="pill">🚆 ${esc(b.train)} · ${esc(b.kind)}</span>`,
         b.car && `<span class="pill">Car ${esc(b.car)} · ${esc(b.carClass)}</span>`,
         b.seat && `<span class="pill">Seat ${esc(b.seat)}</span>`,
-        b.price && `<span class="pill">${uzs(b.price)}</span>`,
+        b.price && `<span class="pill">💰 ${esc(money(b.price, "UZS", rates))}</span>`,
       ].filter(Boolean).join("");
       timeline.push({ time: b.dep, html: `
       <div class="card booked-card">
@@ -165,7 +176,7 @@ export function renderTrip({ bookings, events, legs, names, seats, trains, last,
         ${b.note ? `<div class="note">⚠️ ${esc(b.note)}</div>` : ""}${fileLinks(b.files)}
       </div>` });
     }
-    for (const h of hotels.filter((h) => h.checkIn === date)) timeline.push({ time: h.checkInTime || "14:00", html: hotelCard(h) });
+    for (const h of hotels.filter((h) => h.checkIn === date)) timeline.push({ time: h.checkInTime || "14:00", html: hotelCard(h, rates) });
     for (const h of hotels.filter((h) => h.checkOut === date)) {
       timeline.push({ time: h.checkOutTime || "12:00", html: slotHtml({ time: h.checkOutTime || "12:00", tag: "tip", title: `Check out: ${h.name}`, note: "Take the registration slip." }) });
     }

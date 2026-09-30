@@ -124,6 +124,17 @@ async function refreshWeather(state, trip) {
   state.weather = { at: new Date().toISOString(), days };
 }
 
+// Exchange rates (units per 1 PLN) from open.er-api.com (free, no key, updated daily upstream).
+// Refreshed every 30 minutes in the cron run; prices are shown in PLN and UZS.
+async function refreshRates(state) {
+  if (state.rates && Date.now() - new Date(state.rates.at) < WEATHER_EVERY_MS) return;
+  const data = await (await fetch("https://open.er-api.com/v6/latest/PLN")).json();
+  if (data.result !== "success") throw new Error(`rates: ${data["error-type"] ?? "failed"}`);
+  const r = data.rates;
+  state.rates = { at: new Date().toISOString(), updated: data.time_last_update_utc,
+    rates: { PLN: 1, UZS: r.UZS, NOK: r.NOK, EUR: r.EUR, USD: r.USD } };
+}
+
 // All state is one KV key, written once per run: the KV free tier allows 1,000 writes a day.
 async function loadState(env) {
   const s = (await env.STATE.get("state", "json")) ?? {};
@@ -307,17 +318,18 @@ export default {
     const at = new Date().toISOString();
     await refreshChats(env, state).catch((e) => console.error("refreshChats", e));
     await refreshWeather(state, trip).catch((e) => console.error("refreshWeather", e));
+    await refreshRates(state).catch((e) => console.error("refreshRates", e));
     try {
       const r = await check(env, state, trip);
       console.log(r.summary, r.warnings);
       const ok = !r.warnings.length;
-      await env.STATE.put("state", JSON.stringify({ seats: r.seats, trains: r.trains, notified: r.notified, low: r.low, soldOut: r.soldOut, telegramChats: state.telegramChats, weather: state.weather, errors: ok ? 0 : state.errors + 1,
+      await env.STATE.put("state", JSON.stringify({ seats: r.seats, trains: r.trains, notified: r.notified, low: r.low, soldOut: r.soldOut, telegramChats: state.telegramChats, weather: state.weather, rates: state.rates, errors: ok ? 0 : state.errors + 1,
         last: { at, ok, summary: r.summary, error: ok ? undefined : r.warnings.join(" | ") } }));
       if (!ok && state.errors + 1 === ERROR_ALERT_AFTER) await notify(env, state, "⚠️ Train watcher failing", r.warnings[0]).catch(() => {});
     } catch (e) {
       console.error(e);
       const errors = state.errors + 1;
-      await env.STATE.put("state", JSON.stringify({ seats: e.seats ?? state.seats, trains: e.trains ?? state.trains, notified: e.notified ?? state.notified, low: e.low ?? state.low, soldOut: e.soldOut ?? state.soldOut, telegramChats: state.telegramChats, weather: state.weather,
+      await env.STATE.put("state", JSON.stringify({ seats: e.seats ?? state.seats, trains: e.trains ?? state.trains, notified: e.notified ?? state.notified, low: e.low ?? state.low, soldOut: e.soldOut ?? state.soldOut, telegramChats: state.telegramChats, weather: state.weather, rates: state.rates,
         errors, last: { at, ok: false, error: String(e) } }));
       if (errors === ERROR_ALERT_AFTER) await notify(env, state, "⚠️ Train watcher failing", String(e)).catch(() => {});
     }
@@ -342,12 +354,12 @@ export default {
         "Content-Disposition": `inline; filename="${name.split("/").pop()}"`, "Cache-Control": "private, max-age=86400" } });
     }
     const trip = await loadTrip(env);
-    if (path === "/guide") return html(renderGuide(nav("guide"), trip));
-    const { seats, trains, last, weather } = await loadState(env);
+    if (path === "/guide") return html(renderGuide(nav("guide"), trip, (await loadState(env)).rates));
+    const { seats, trains, last, weather, rates } = await loadState(env);
     if (path === "/trip") {
       return html(renderTrip({ bookings: trip.bookings, hotels: trip.hotels, events: trip.events, legs: trip.legs, names: NAMES,
         seats, trains, last, passengers: trip.passengers, tripStart: trip.start, tripEnd: trip.end, startCity: trip.startCity,
-        planned: trip.planned, plan: trip.plan, nav: nav("trip"), weather: weather?.days ?? {} }));
+        planned: trip.planned, plan: trip.plan, nav: nav("trip"), weather: weather?.days ?? {}, rates: rates?.rates ?? null }));
     }
     if (path !== "/status") return new Response("Not found", { status: 404 });
     // Train numbers end in Cyrillic letters (772Ф), so declare UTF-8 or browsers show Ð¤.

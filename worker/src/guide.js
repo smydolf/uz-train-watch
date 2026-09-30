@@ -24,7 +24,7 @@ function citySheet(c, days) {
 
 const shortDate = (d) => `${+d.slice(8)} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+d.slice(5, 7) - 1]}`;
 
-export function renderGuide(nav, trip = { hotels: [], slips: [] }) {
+export function renderGuide(nav, trip = { hotels: [], slips: [] }, rates = null) {
   // City dates come from the hotel stays in the private trip data.
   const days = Object.fromEntries(CITIES.map((c) => [c.id, (trip.hotels ?? []).filter((h) => h.city?.toLowerCase() === c.id)
     .map((h) => `${shortDate(h.checkIn)} – ${shortDate(h.checkOut)}`).join(", ")]));
@@ -74,6 +74,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute
 .checklists label:has(input:checked){color:var(--muted);text-decoration:line-through}
 .reset{font:inherit;font-size:13px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:8px 12px;cursor:pointer}
 .note{font-size:13px;color:var(--muted)}
+.rate{font-size:16px;padding:10px 12px;border-radius:12px;background:var(--accent-soft)}
 footer{margin-top:28px;font-size:13px;color:var(--muted)}footer a{color:var(--muted)}
 @media print{.tn-bar,.chips,#map-section,.reset{display:none}section,.card{box-shadow:none;break-inside:avoid}}
 </style></head><body>${nav}<main>
@@ -83,7 +84,10 @@ footer{margin-top:28px;font-size:13px;color:var(--muted)}footer a{color:var(--mu
 
 ${CITIES.map((c) => citySheet(c, days[c.id])).join("")}
 
-<section id="money"><h2>💵 Money</h2>${list(REFERENCE.money)}
+<section id="money"><h2>💵 Money</h2>
+  ${rates?.rates?.UZS ? `<p class="rate"><b>1 PLN ≈ ${Math.round(rates.rates.UZS).toLocaleString("en")} UZS</b> · 100,000 UZS ≈ ${(100000 / rates.rates.UZS).toFixed(0)} PLN
+    <span class="muted"> · rate from ${esc(rates.updated?.slice(5, 16) ?? "")}</span></p>` : ""}
+  ${list(REFERENCE.money)}
   <h2 style="margin-top:18px">📱 SIM & getting around</h2>${list(REFERENCE.connectivity)}</section>
 
 <section id="documents"><h2>🛂 Documents & registration</h2>${list(REFERENCE.documents)}
