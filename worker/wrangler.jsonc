@@ -6,6 +6,6 @@
   "triggers": { "crons": ["*/5 * * * *"] },
   "kv_namespaces": [{ "binding": "STATE", "id": "2f0aa410825c46c6896edc3ed0d60df8" }],
   "observability": { "enabled": true },
-  // The travel guide is imported as a string (src/guide.html).
+  // HTML files (the guide checklists and map) are imported as strings.
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }]
 }
