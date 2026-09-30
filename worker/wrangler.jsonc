@@ -4,7 +4,7 @@
   "main": "src/index.js",
   "compatibility_date": "2026-09-20",
   "triggers": { "crons": ["*/5 * * * *"] },
-  "kv_namespaces": [{ "binding": "STATE" }],
+  "kv_namespaces": [{ "binding": "STATE", "id": "2f0aa410825c46c6896edc3ed0d60df8" }],
   "observability": { "enabled": true },
   // The travel guide is imported as a string (src/guide.html).
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }]
