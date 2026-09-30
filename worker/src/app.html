@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Uzbekistan trip</title>
+<meta name="theme-color" content="#0f1012">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trip">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/app-icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#0f1012;--card:#1a1b1f;--raised:#24252a;--line:#2e2f35;--dim:#3a3b41;--text:#f2f1ee;--text2:#c9c8c4;--muted:#9a9aa2;--off:#6c6c74;
+--teal:#2dd4bf;--amber:#fbbf24;--amber-bg:#2a2110;--amber-text:#d9c9a3;--amber-line:#4a3a1c;--red:#fca5a5;--red-bg:#3a1715;--red-text:#e8c4c1;--red-line:#7f2a25;
+--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--sans:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+--sys:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg);color-scheme:dark;-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--text);font:400 15px/1.4 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit;-webkit-appearance:none;appearance:none}
+input{font:inherit;color:inherit;margin:0}
+input:-webkit-autofill{-webkit-text-fill-color:var(--text);-webkit-box-shadow:0 0 0 40px var(--card) inset;caret-color:var(--text)}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+input:focus-visible{outline:0}
+#app{max-width:520px;margin:0 auto;min-height:100dvh;padding-left:var(--sl);padding-right:var(--sr)}
+.boot{min-height:100dvh;display:flex;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.08em;color:var(--off)}
+
+/* Tabs: a sticky segmented bar at the top in a Safari tab, a bottom bar when opened from the Home Screen. */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);padding:calc(var(--st) + 8px) 16px 10px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--card);border-radius:14px;padding:4px}
+.seg a{height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.06em;color:var(--muted)}
+.seg a.on{background:var(--teal);color:var(--bg)}
+.bot{position:fixed;z-index:20;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:0 max(16px,var(--sr)) var(--sb) max(16px,var(--sl));
+  background:rgba(15,16,18,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+.bot a{flex:1;max-width:120px;min-height:54px;display:flex;align-items:center;justify-content:center;font:600 11px var(--mono);letter-spacing:.06em;color:var(--off)}
+.bot a.on{color:var(--teal)}
+/* Safari's address bar sits over the bottom ~90px: keep that free in the browser. */
+.scr{display:flex;flex-direction:column;gap:12px;padding:8px 16px calc(96px + var(--sb))}
+.nav-bottom .scr{padding-top:calc(var(--st) + 14px);padding-bottom:calc(80px + var(--sb))}
+.sim{display:block;text-align:center;font:600 11px var(--mono);letter-spacing:.06em;color:var(--amber);background:var(--amber-bg);border-radius:10px;padding:8px 10px}
+
+.card{background:var(--card);border-radius:24px;padding:18px 20px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.lbl{font:600 12px var(--mono);letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.lbl4{font:600 12px var(--mono);letter-spacing:.04em;color:var(--muted)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.px6{padding:0 6px}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 6px;font:500 13px var(--mono);color:var(--muted)}
+.sub13{font:500 13px var(--mono);color:var(--muted)}
+.h28{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.1;margin-top:4px}
+.t20{font-size:20px;font-weight:600;margin-top:4px}
+.t22{font-size:22px;font-weight:600;margin-top:4px}
+.t24{font-size:24px;font-weight:600}
+.sub{font-size:14px;color:var(--muted);margin-top:2px}
+.s12{font-size:12px;color:var(--muted)}
+.s13{font-size:13px;color:var(--muted);line-height:1.45}
+.teal{color:var(--teal)!important}
+.amber{color:var(--amber)!important}
+.cost{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:14px;color:var(--muted)}
+.bk{font:600 10px var(--mono);letter-spacing:.06em;color:var(--amber);background:var(--amber-bg);padding:3px 6px;border-radius:6px}
+
+/* NOW */
+.now{border-radius:28px;padding:22px 20px;gap:12px;border:1px solid rgba(45,212,191,.33)}
+.now-lbl{display:flex;align-items:center;gap:8px;font:600 12px var(--mono);letter-spacing:.06em;color:var(--teal)}
+.now-lbl i{width:8px;height:8px;border-radius:4px;background:var(--teal);flex:none}
+.skip{font:600 12px var(--mono);letter-spacing:.04em;color:var(--muted);background:var(--raised);padding:0 12px;height:32px;border-radius:8px;flex:none}
+.now-title{font-size:32px;font-weight:600;line-height:1.08;letter-spacing:-.02em;overflow-wrap:anywhere}
+.now .cost{margin-top:-4px}
+.now-note{font-size:15px;line-height:1.5;color:var(--text2)}
+.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.two>:only-child{grid-column:1/-1}
+.btn{display:flex;align-items:center;justify-content:center;min-height:48px;background:var(--raised);color:var(--text);border-radius:16px;padding:12px 14px;font-weight:600;font-size:15px;text-align:center}
+.btn.pri{background:var(--teal);color:var(--bg)}
+.btn.out{background:none;border:1px solid var(--teal);color:var(--teal);min-height:44px}
+.extra{display:flex;flex-direction:column;gap:8px}
+.next-title{font-size:22px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.chip{font:600 12px var(--mono);background:var(--raised);color:var(--teal);padding:8px 10px;border-radius:8px}
+.skip-o{margin-left:auto;font:600 12px var(--mono);color:var(--muted);padding:7px 10px;border-radius:8px;border:1px solid var(--line)}
+.tonight{flex-direction:row;justify-content:space-between;align-items:center;gap:12px}
+.qr{width:52px;height:52px;border-radius:14px;background:var(--text);color:var(--bg);display:flex;align-items:center;justify-content:center;font:600 10px var(--mono);text-align:center;line-height:1.2;flex:none}
+.gapc{background:var(--amber-bg)}
+.gapc .sub{color:var(--amber-text)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{display:block;background:var(--card);border-radius:18px;padding:12px;min-width:0}
+.tile .k{font:600 11px var(--mono);color:var(--muted)}
+.tile .v{font-size:20px;font-weight:600;margin-top:2px}
+.tile .u{font-size:12px;color:var(--muted)}
+
+/* DAY */
+.dayhd{padding:6px 6px 0}
+.strip{position:relative;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:4px 16px 6px}
+.strip::-webkit-scrollbar{display:none}
+.dc{flex:none;width:46px;padding:7px 0 8px;border-radius:12px;background:var(--card);display:flex;flex-direction:column;align-items:center;gap:1px;box-shadow:inset 0 -3px 0 var(--c)}
+.dc span{font:600 10px var(--mono);color:var(--muted)}
+.dc b{font-size:18px;font-weight:600;line-height:1.15}
+.dc.today span{color:var(--teal)}
+.dc.on{background:var(--teal);color:var(--bg)}
+.dc.on span{color:var(--bg)}
+.route{padding:8px 6px 0}
+.stop{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:14px}
+.rail{display:flex;flex-direction:column;align-items:center}
+.node{width:18px;height:18px;border-radius:9px;border:3px solid var(--off);background:var(--bg);flex:none;margin-top:2px}
+.line{width:4px;flex:1;background:var(--line);border-radius:2px;min-height:34px}
+.sbody{padding-bottom:6px;min-width:0}
+.noleg .sbody{padding-bottom:20px}
+.stitle{font-size:17px;font-weight:600;line-height:1.2;overflow-wrap:anywhere}
+.stop .cost{font-size:13px;margin-top:2px}
+.snote{font-size:14px;line-height:1.5;color:var(--text2);margin-top:6px}
+.schips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.schip{font:600 11px var(--mono);background:var(--card);color:var(--teal);padding:7px 9px;border-radius:7px}
+.sbtn{font:600 11px var(--mono);color:var(--muted);padding:6px 9px;border-radius:7px;border:1px solid var(--line)}
+.leg{display:inline-flex;margin:10px 0 12px;font:500 12px var(--mono);color:var(--text2);background:var(--card);padding:5px 10px;border-radius:8px}
+.stime{font:600 14px var(--mono);color:var(--muted);padding-top:2px;text-align:right}
+.stop.cur .node{border-color:var(--teal);background:var(--teal)}
+.stop.cur .line{background:var(--teal)}
+.stop.cur .stime{color:var(--teal)}
+.stop.past .node{border-color:var(--dim);background:var(--dim)}
+.stop.past .line{background:var(--dim)}
+.stop.past .sop{opacity:.45}
+.stop.off .node{border-color:var(--dim)}
+.stop.off .sop{opacity:.4}
+.stop.off .stitle{text-decoration:line-through}
+.stop.off .skipb{color:var(--teal)}
+.empty{color:var(--muted);font-size:14px;padding:12px 0}
+
+/* TRIP */
+.bar{display:flex;gap:3px;height:6px}
+.bar i{display:block;border-radius:3px;min-width:6px}
+.warn{background:var(--amber-bg);gap:10px;padding:16px 18px}
+.warn .lbl{color:var(--amber)}
+.w{display:flex;flex-direction:column;gap:2px}
+.wt{font-size:16px;font-weight:600}
+.wx{font-size:13px;color:var(--amber-text);line-height:1.45}
+.wsep{height:1px;background:var(--amber-line)}
+.days{padding:8px;gap:0}
+.days>.lbl{display:flex;justify-content:space-between;padding:10px 12px 6px}
+.drow{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;cursor:pointer}
+.drow.open{background:var(--raised)}
+.dgrid{display:grid;grid-template-columns:30px 4px minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.dnum{text-align:center;line-height:1}
+.dwd{font:600 10px var(--mono);color:var(--muted)}
+.dn{font-size:18px;font-weight:600;margin-top:2px}
+.cbar{display:block;width:4px;height:30px;border-radius:2px}
+.dcity{font-size:15px;font-weight:600;min-width:0}
+.dchip{font:600 12px var(--mono);padding:4px 8px;border-radius:8px;background:var(--raised);white-space:nowrap}
+.drow.open .dchip{background:var(--line)}
+.dchip.watch{background:var(--amber-bg);color:var(--amber)}
+.dtemp{font:500 13px var(--mono);color:var(--muted);width:30px;text-align:right}
+.dplan{font-size:13px;line-height:1.5;color:var(--text2);padding-left:48px}
+.dopen{display:inline-block;margin-left:8px;font:600 11px var(--mono);color:var(--teal);padding:4px 0}
+.sec{padding:8px 6px 0}
+.tr{border-radius:22px;padding:16px 18px;gap:8px}
+.jr{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+.jr .r{text-align:right}
+.jr sup{font-size:.5em;color:var(--amber);margin-left:2px}
+.dash{display:block;height:2px;background:repeating-linear-gradient(90deg,var(--dim) 0 5px,transparent 5px 9px)}
+.seats{border-top:1px solid var(--line);padding-top:8px;font-size:13px;color:var(--text2)}
+.qrc{font:600 11px var(--mono);background:var(--text);color:var(--bg);padding:6px 9px;border-radius:8px;flex:none}
+.tnote{font-size:12px;color:var(--amber);line-height:1.45}
+.watch{border:1px dashed var(--dim);border-radius:22px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.watch.hit{border-color:var(--amber)}
+.w15{font-size:15px;font-weight:600;margin-top:4px}
+.star{font-size:18px;color:var(--amber);flex:none}
+.hotels{border-radius:22px;padding:4px 18px;gap:0}
+.hrow{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.hrow:last-child{border-bottom:0}
+.hbar{display:block;border-radius:2px}
+.hrow.gap .hbar{border:1px dashed var(--amber)}
+.hname{font-size:16px;font-weight:600}
+.hrow.gap .hname,.hrow.gap .hdates{color:var(--amber)}
+.hsub{font-size:13px;color:var(--muted);margin-top:2px}
+.hdates{font:500 12px var(--mono);color:var(--text2);text-align:right;white-space:nowrap}
+.papers{border-radius:22px;padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pt{display:block;text-align:left}
+
+/* TOOLS */
+.conv{gap:12px}
+.uzs{display:flex;align-items:baseline;gap:8px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.uzs input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);font:600 34px var(--sans);letter-spacing:-.02em;padding:0}
+.cur{font:600 14px var(--mono);color:var(--muted)}
+.pln{display:flex;align-items:baseline;gap:8px}
+.pln span:first-child{flex:1;font-size:34px;font-weight:600;color:var(--teal);letter-spacing:-.02em}
+.presets{display:flex;gap:6px}
+.presets button{flex:1;text-align:center;background:var(--raised);border-radius:10px;padding:10px 0;font:600 13px var(--mono)}
+.krow{display:flex;gap:12px;align-items:center;min-height:44px;font-size:15px}
+.kdot{width:22px;height:22px;border-radius:11px;flex:none;border:2px solid var(--teal);position:relative}
+.kdot::after{content:"";position:absolute;inset:-11px}
+.kdot.on{background:var(--teal)}
+.klabel{flex:1;min-height:36px;display:flex;align-items:center;text-align:left}
+.klabel.done{color:var(--off);text-decoration:line-through}
+.kin{flex:1;min-width:0;background:var(--raised);border:0;outline:0;border-radius:8px;padding:7px 10px;color:var(--text);font:500 16px var(--sans)}
+.kdel{width:32px;height:32px;flex:none;border-radius:8px;background:var(--red-bg);color:var(--red);display:flex;align-items:center;justify-content:center;font-size:17px}
+.kadd{display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
+.kadd input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);font:500 16px var(--sans);padding:6px 0}
+.kadd input::placeholder{color:var(--off)}
+.addb{font:600 12px var(--mono);background:var(--teal);color:var(--bg);padding:8px 12px;border-radius:8px}
+.saved{font:500 11px var(--mono);color:var(--off)}
+.sos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sost{display:block;background:var(--card);border-radius:20px;padding:16px}
+.sost .sn{font-size:30px;font-weight:600}
+.sost .sw{font-size:13px;color:var(--muted)}
+.sost.red{background:var(--red-bg)}
+.sost.red .sn{color:var(--red)}
+.sost.red .sw{color:var(--red-text)}
+.sos3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.soss{display:flex;flex-direction:column;background:var(--card);border-radius:16px;padding:10px 12px}
+.soss b{font-size:18px;font-weight:600}
+.soss span{font-size:12px;color:var(--muted)}
+.driver .lbl span:last-child{color:var(--muted)}
+.dsub{font-size:14px;color:var(--muted)}
+.dru{font:600 22px/1.3 var(--sys)}
+.dra{font:400 17px/1.4 var(--sys);color:#e4e3df}
+.btn2{display:flex;align-items:center;justify-content:center;min-height:46px;background:var(--raised);color:var(--text);border-radius:14px;padding:10px 12px;font-weight:600;font-size:14px;text-align:center}
+.seg3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--raised);border-radius:12px;padding:4px;margin-top:6px}
+.seg3 button{height:38px;border-radius:9px;text-align:center;font:600 12px var(--mono);letter-spacing:.06em;color:var(--muted)}
+.seg3 button.on{background:var(--teal);color:var(--bg)}
+.foot{font:500 11px/1.9 var(--mono);color:var(--off);text-align:center;padding:8px 0}
+.foot a,.foot button{color:var(--muted);text-decoration:underline;text-underline-offset:3px;font:inherit}
+
+/* Sign in */
+.login{min-height:100dvh;display:flex;flex-direction:column;gap:28px;padding:calc(var(--st) + 40px) 24px calc(24px + var(--sb))}
+.lg-head{display:flex;flex-direction:column;gap:14px}
+.lg-kick{font:600 12px var(--mono);color:var(--muted);letter-spacing:.08em}
+.lg-title{font-size:46px;font-weight:600;letter-spacing:-.03em;line-height:1}
+.lg-cities{font:500 12px var(--mono);display:flex;gap:10px;flex-wrap:wrap}
+.lg-form{display:flex;flex-direction:column;gap:12px;margin-top:auto}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fld label{font:600 11px var(--mono);color:var(--muted);letter-spacing:.08em}
+.inp,.pw{height:52px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.inp{width:100%;padding:0 16px;color:var(--text);font:500 17px var(--sans);outline:0}
+.pw{display:flex;align-items:center;padding:0 6px 0 16px}
+.pw input{flex:1;min-width:0;height:100%;background:transparent;border:0;outline:0;color:var(--text);font:500 17px var(--sans)}
+.pw button{height:40px;padding:0 12px;border-radius:10px;font:600 11px var(--mono);color:var(--muted);letter-spacing:.06em}
+.inp:focus,.pw:focus-within{border-color:var(--off)}
+.bad,.bad:focus,.bad:focus-within{border-color:var(--red-line)}
+.lg-err{font-size:14px;color:var(--red);background:var(--red-bg);border-radius:12px;padding:10px 14px}
+.lg-btn{height:56px;border-radius:16px;background:var(--teal);color:var(--bg);font-size:17px;font-weight:600;text-align:center;margin-top:4px}
+.lg-btn:disabled{opacity:.75}
+.lg-foot{margin:0;font-size:13px;line-height:1.5;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div id="app"><div class="boot">LOADING…</div></div>
+<script>
+"use strict";
+// /app: the trip companion. All trip data comes from /api/app (KV "trip" and "state"). What the user changes
+// on this phone (kit list, skipped stops, navigation mode) stays in localStorage under STORE_KEY.
+
+const STORE_KEY = "tripagent.uz.v1";
+const CACHE = "uz-trip-v1"; // the service worker (/sw.js) uses the same cache
+const TZ_MIN = 300; // Asia/Tashkent is UTC+5 all year: no daylight saving
+const FALLBACK_RATE = 3068; // UZS per 1 PLN, when the Worker has no rate yet
+const CITY = { Tashkent: "#60a5fa", Samarkand: "#2dd4bf", Bukhara: "#fbbf24", Khiva: "#fb923c" };
+const YR = { Tashkent: "41.311,69.280", Samarkand: "39.655,66.975", Bukhara: "39.775,64.420", Khiva: "41.378,60.360" };
+const DEFAULT_KIT = ["Passports", "Tonight's train e-ticket", "Headscarf for mosques", "Cash for the bazaar"];
+const KIND = { move: "move", food: "food", sight: "sight", tip: "note" }; // from the older "tag" field
+const TABS = ["now", "day", "trip", "tools"];
+const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+const $app = document.getElementById("app");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const toMin = (hm) => { const [h, m] = String(hm).split(":").map(Number); return h * 60 + (m || 0); };
+const addDays = (iso, n) => new Date(Date.parse(iso + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+const cap = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+const wd = (iso) => WD[new Date(iso + "T00:00:00Z").getUTCDay()]; // "FRI"
+const dm = (iso) => `${+iso.slice(8)} ${MON[+iso.slice(5, 7) - 1]}`; // "2 OCT"
+const wdm = (iso) => `${wd(iso)} ${dm(iso)}`; // "FRI 2 OCT"
+const wdT = (iso) => cap(wd(iso)); // "Fri"
+const dmT = (iso) => `${+iso.slice(8)} ${cap(MON[+iso.slice(5, 7) - 1])}`; // "2 Oct"
+const range = (a, b) => (a.slice(0, 7) === b.slice(0, 7) ? `${+a.slice(8)}–${dm(b)}` : `${dm(a)} – ${dm(b)}`); // "2–4 OCT"
+const rangeT = (a, b) => range(a, b).replace(/[A-Z]{3}/g, cap); // "2–4 Oct"
+const tashMs = (date, hm = "00:00") => Date.parse(`${date}T${hm}:00Z`) - TZ_MIN * 60000;
+const tashIso = (ms) => new Date(ms + TZ_MIN * 60000).toISOString();
+const tashHM = (ms) => tashIso(ms).slice(11, 16);
+const gmaps = (q) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+const fileUrl = (f) => "/files/" + encodeURIComponent(f); // the same URLs as /trip, so both share the cached copy
+const fmt = (n) => Math.round(n).toLocaleString("en");
+const plain = (s) => String(s ?? "").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").trim();
+const slug = (s) => plain(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "item";
+const color = (city) => CITY[city] || "#9a9aa2";
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : w === w.toUpperCase() ? "S" : "s"}`;
+const dur = (dep, arr) => { const m = (toMin(arr) - toMin(dep) + 1440) % 1440; return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; };
+const isWeb = (u) => /^https?:/.test(u) || u.startsWith("/");
+const link = (l, cls) => `<a class="${cls}" href="${esc(l.url)}"${isWeb(l.url) ? ' target="_blank" rel="noopener"' : ""}>${esc(l.label)}${isWeb(l.url) ? " ↗" : ""}</a>`;
+const costLine = (x) => (x.cost || x.book ? `<div class="cost">${x.cost ? `<span>${esc(x.cost)}</span>` : ""}${x.book ? '<span class="bk">BOOK AHEAD</span>' : ""}</div>` : "");
+const seatText = (b) => [b.car && `Car ${b.car}`, b.seat].filter(Boolean).join(" · ");
+const typing = () => !!document.activeElement?.matches?.("input, textarea");
+
+// Tashkent time now, or the time in ?at=2026-10-02T12:40 (read as Tashkent time) for testing.
+function clock() {
+  const m = (new URLSearchParams(location.search).get("at") || "").match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}))?$/);
+  const ms = m ? tashMs(m[1], m[2] || "00:00") : Date.now();
+  const iso = tashIso(ms);
+  return { ms, date: iso.slice(0, 10), hm: iso.slice(11, 16), min: toMin(iso.slice(11, 16)), simulated: !!m };
+}
+
+// ---- What the user changes on this phone ----
+function loadStore() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch {}
+  return {
+    v: 1,
+    kitItems: Array.isArray(s?.kitItems) ? s.kitItems : DEFAULT_KIT.map((label, i) => ({ id: "k" + i, label, done: false })),
+    skipped: s?.skipped && typeof s.skipped === "object" ? s.skipped : {}, // { "<item id>": true }
+    navMode: ["auto", "top", "bottom"].includes(s?.navMode) ? s.navMode : "auto",
+    savedAt: s?.savedAt ?? null,
+    hero: s?.hero ?? null, // trip dates and cities for the sign-in screen, from the last data load
+  };
+}
+let store = loadStore();
+// One object, one key: a later POST /api/state can share it between phones (last write wins).
+function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {} }
+function save() { store.savedAt = new Date().toISOString(); persist(); }
+
+// Registration slips share their ticks with the /guide checklist: localStorage "uz-checks", same ids.
+const SLIP_KEY = "uz-checks";
+const escGuide = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const slipId = (text, i) => `slip-${i}-${escGuide(text).slice(0, 20)}`;
+function slipTicks() { try { return new Set(JSON.parse(localStorage.getItem(SLIP_KEY) || "[]")); } catch { return new Set(); } }
+function toggleSlip(id) {
+  const s = slipTicks();
+  if (s.has(id)) s.delete(id); else s.add(id);
+  try { localStorage.setItem(SLIP_KEY, JSON.stringify([...s])); } catch {}
+}
+
+let data = null, M = null, lastText = "";
+const ui = { tab: "now", day: null, openDay: null, notes: new Set(), kitEdit: false, kitDraft: "", uzs: 425000, slipsOpen: false,
+  login: { user: "", pass: "", show: false, err: "", busy: false } };
+
+// ---- Trip model ----
+function build(d) {
+  const t = { bookings: [], hotels: [], events: [], planned: [], plan: {}, slips: [], passengers: 2, ...d.trip };
+  const dates = [];
+  if (t.start && t.end) for (let x = t.start; x <= t.end; x = addDays(x, 1)) dates.push(x);
+  const moves = [...t.bookings, ...t.planned].filter((b) => b.date && b.dep).sort((a, b) => (a.date + a.dep).localeCompare(b.date + b.dep));
+  const dawn = {}, label = {}, stay = {}, dusk = {};
+  let city = t.startCity || "Tashkent";
+  for (const date of dates) {
+    const today = moves.filter((b) => b.date === date);
+    dawn[date] = city;
+    label[date] = today.length ? [city, ...today.map((b) => b.toCity)].join(" → ") : city;
+    stay[date] = today.length && today[0].dep < "12:00" ? today[0].toCity : city; // after a morning train the day is spent at the destination
+    if (today.length) city = today.at(-1).toCity;
+    dusk[date] = city;
+  }
+  const cityAt = (date, hm) => moves.reduce((c, b) => (b.date === date && hm >= b.dep ? b.toCity : c), dawn[date]);
+  const segments = [];
+  for (const date of dates) {
+    if (segments.at(-1)?.city === stay[date]) segments.at(-1).days++;
+    else segments.push({ city: stay[date], days: 1 });
+  }
+  const days = {};
+  dates.forEach((date, i) => { days[date] = { date, n: i + 1, items: dayItems(t, date, cityAt) }; });
+  return { t, dates, moves, label, stay, segments, days, gaps: findGaps(t, dates, moves, dusk) };
+}
+
+const trainItem = (b) => ({
+  src: "train", booking: b, time: b.dep, kind: "train", title: `Train to ${b.toCity}`, cost: seatText(b),
+  note: [`${b.from} → ${b.to} · ${b.train}${b.kind ? `, ${b.kind}` : ""}.`, b.note].filter(Boolean).join(" "),
+  map: `${b.from} railway station`, leg: b.arr ? `Train ${b.train} · ${dur(b.dep, b.arr)}` : "",
+  links: b.files?.length ? [{ label: "Open ticket", url: fileUrl(b.files[0]) }] : [],
+});
+
+// One day: the KV plan, plus booked trains and events (the landing, the flight home) that no plan item covers
+// at the same time. An item without a time keeps its place after the item before it.
+function dayItems(t, date, cityAt) {
+  const plan = t.plan[date] || [];
+  let prev = "00:00";
+  const out = plan.map((x, i) => ({ ...x, src: "plan", key: x.time ? (prev = x.time) : prev, ord: i }));
+  const taken = new Set(plan.map((x) => x.time).filter(Boolean));
+  for (const e of t.events.filter((e) => e.date === date && !taken.has(e.time))) {
+    out.push({ src: "event", time: e.time || "", title: e.title, kind: "move", key: e.time || "00:00", ord: 900 + out.length,
+      map: /✈/.test(e.title) ? `${cityAt(date, e.time || "00:00")} International Airport` : "" });
+  }
+  for (const b of t.bookings.filter((b) => b.date === date && b.dep && !taken.has(b.dep))) out.push({ ...trainItem(b), key: b.dep, ord: 900 + out.length });
+  out.sort((a, b) => a.key.localeCompare(b.key) || a.ord - b.ord);
+  // Stable ids for skips: an explicit "id", else the title (not the position, which changes when the plan is edited).
+  const seen = {};
+  return out.map((x) => {
+    const base = `${date}#${x.id ?? (x.src === "train" ? "train-" + x.booking.train : slug(x.title))}`;
+    seen[base] = (seen[base] || 0) + 1;
+    const kind = x.kind || KIND[x.tag] || "sight";
+    const city = cityAt(date, x.key);
+    return { ...x, id: seen[base] > 1 ? `${base}~${seen[base]}` : base, kind, city, maps: mapsLink(x, kind, city),
+      links: (x.links || []).filter((l) => l && l.url && l.label) };
+  });
+}
+
+// Google Maps for a stop: its "map" (a search, "lat,lng" or a full Maps URL), else "title, city".
+// A note (tip) without a "map" has no place, so it gets no Maps link.
+function mapsLink(x, kind, city) {
+  if (x.map) return /^https?:\/\//.test(x.map) ? { label: x.map.includes("/dir/") ? "Route" : "Maps", url: x.map } : { label: "Maps", url: gmaps(x.map) };
+  if (kind === "note") return null;
+  return { label: "Maps", url: gmaps(`${plain(x.title)}, ${city}`) };
+}
+
+// A night needs a hotel unless one covers it, a night train runs through it, or the trip leaves before 06:00
+// the next morning (the flight home).
+function findGaps(t, dates, moves, dusk) {
+  const covered = (n) => t.hotels.some((h) => h.checkIn <= n && n < h.checkOut)
+    || moves.some((b) => b.date === n && b.arrDate && b.arrDate > n)
+    || t.events.some((e) => e.date === addDays(n, 1) && e.time && e.time < "06:00");
+  const gaps = [];
+  for (const n of dates.slice(0, -1)) {
+    if (covered(n)) continue;
+    const g = gaps.at(-1);
+    if (g && g.to === n) { g.to = addDays(n, 1); g.nights++; } else gaps.push({ from: n, to: addDays(n, 1), nights: 1, city: dusk[n] });
+  }
+  for (const g of gaps) {
+    const parts = [];
+    const endHotel = t.hotels.find((h) => h.checkOut === g.from);
+    const arrival = moves.filter((b) => b.arrDate === g.from).at(-1);
+    if (endHotel) parts.push(`${endHotel.name} ends ${wdT(g.from)} ${dmT(g.from)}.`);
+    else if (arrival) parts.push(`The ${arrival.fromCity} train arrives ${wdT(g.from)} ${arrival.arr}.`);
+    const dep = moves.find((b) => b.date === g.to);
+    const hotel = t.hotels.find((h) => h.checkIn === g.to);
+    const ev = t.events.find((e) => (e.date === g.to || e.date === addDays(g.to, 1)) && e.time);
+    if (dep) parts.push(`The ${dep.toCity} train is ${wdT(g.to)} ${dep.dep}.`);
+    else if (hotel) parts.push(`${hotel.name} starts ${wdT(g.to)}.`);
+    else if (ev) parts.push(`${plain(ev.title)}: ${wdT(ev.date)} ${ev.time}.`);
+    const n = g.nights === 1 ? "one night" : `${g.nights} nights`;
+    parts.push(endHotel ? `Extend or book ${n}.` : `Book ${n} in ${g.city}.`);
+    g.text = parts.join(" ");
+  }
+  return gaps;
+}
+
+// "refundUntil": "2026-10-02T18:48", or the booking note's "refund possible until 2 Oct 18:48".
+function refundUntil(b) {
+  const iso = String(b.refundUntil || "").match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+  if (iso) return tashMs(iso[1], iso[2]);
+  const m = String(b.note || "").match(/refund[^.]*?until (\d{1,2}) ([A-Za-z]{3})[a-z]* (\d{1,2}):(\d{2})/i);
+  const mon = m ? MON.indexOf(m[2].toUpperCase()) + 1 : 0;
+  if (!mon) return null;
+  return tashMs(`${b.date.slice(0, 4)}-${String(mon).padStart(2, "0")}-${m[1].padStart(2, "0")}`, `${m[3].padStart(2, "0")}:${m[4]}`);
+}
+
+// TRIP "Needs you": hotel gaps, a check-out less than 2 h before a train, e-ticket refund deadlines in the next 24 h.
+function warnings(clk) {
+  const { t, moves, gaps } = M, out = [];
+  for (const g of gaps) out.push({ title: `No hotel for ${rangeT(g.from, g.to)}`, text: g.text });
+  for (const h of t.hotels) {
+    const leave = h.checkOutTime || "12:00";
+    for (const b of moves.filter((b) => b.date === h.checkOut)) {
+      const gap = toMin(b.dep) - toMin(leave);
+      if (gap >= 0 && gap < 120) out.push({ title: `Tight check-out, ${dmT(h.checkOut)}`, text: `${h.name} check-out ${leave}, train ${b.dep} from ${b.from}. Ask to leave early.` });
+    }
+  }
+  for (const b of t.bookings) {
+    const r = refundUntil(b);
+    if (r == null || r <= clk.ms || r - clk.ms > 864e5) continue;
+    const mins = Math.round((r - clk.ms) / 6e4);
+    out.push({ title: `Refund deadline in ${mins >= 60 ? `${Math.floor(mins / 60)} h` : `${mins} min`}`,
+      text: `${b.train} ${b.fromCity} → ${b.toCity}, ${wdT(b.date)} ${dmT(b.date)}: the e-ticket can be refunded until ${wdT(tashIso(r).slice(0, 10))} ${tashHM(r)}, not after.` });
+  }
+  return out;
+}
+
+// raw = the last item that has started; now = the first not-skipped item from raw on; next = the one after it.
+function nowNext(day, clk) {
+  const items = day.items, sk = store.skipped;
+  let raw = -1;
+  items.forEach((x, i) => { if (x.time && toMin(x.time) <= clk.min) raw = i; });
+  const active = (from) => items.findIndex((x, i) => i >= from && x.time && !sk[x.id]);
+  const now = active(raw >= 0 ? raw : 0);
+  return { raw, now, next: now >= 0 ? active(now + 1) : -1, early: raw < 0, movedUp: raw >= 0 && now > raw };
+}
+function statusOf(day, clk) {
+  if (day.date !== clk.date) return () => (day.date < clk.date ? "past" : "future");
+  if (!day.items.some((x) => x.time)) return () => "future";
+  const { now } = nowNext(day, clk);
+  const cur = now >= 0 ? now : day.items.length; // the rest of the day is skipped
+  // Items without a time (a tip, the day's route) stay open all day.
+  return (i) => (!day.items[i].time ? "future" : i < cur ? "past" : i === cur ? "cur" : "future");
+}
+const weatherOf = (city, date) => data.weather?.[city]?.[date] || null;
+const clampDate = (date) => (date < M.t.start ? M.t.start : date > M.t.end ? M.t.end : date);
+const countdown = (d) => (d <= 0 ? "NOW" : d < 60 ? `IN ${d} MIN` : `IN ${Math.floor(d / 60)} H${d % 60 ? ` ${d % 60} MIN` : ""}`);
+
+// ---- Render ----
+function navBottom() {
+  if (store.navMode !== "auto") return store.navMode === "bottom";
+  return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+}
+
+function render() {
+  if (!M) return;
+  dirty = false;
+  const clk = clock(), bottom = navBottom();
+  document.documentElement.classList.toggle("nav-bottom", bottom);
+  if (!M.dates.length) {
+    $app.innerHTML = `<main class="scr"><section class="card"><div class="lbl">No trip yet</div><div class="t20">Upload trip.json to KV</div><div class="sub">See the README: scripts/upload.sh.</div></section></main>`;
+    return;
+  }
+  const tabs = TABS.map((t) => `<a href="#${t}"${ui.tab === t ? ' class="on" aria-current="page"' : ""}>${t.toUpperCase()}</a>`).join("");
+  const body = { now: renderNow, day: renderDay, trip: renderTrip, tools: renderTools }[ui.tab](clk);
+  const sim = clk.simulated ? `<a class="sim" href="${location.pathname}${location.hash}">SIMULATED TIME · ${wdm(clk.date)} ${clk.hm} · CLEAR ×</a>` : "";
+  $app.innerHTML = (bottom ? "" : `<header class="top"><nav class="seg" aria-label="Tabs">${tabs}</nav></header>`)
+    + `<main class="scr">${sim}${body}</main>` + (bottom ? `<nav class="bot" aria-label="Tabs">${tabs}</nav>` : "");
+  const strip = document.getElementById("strip"), on = strip?.querySelector(".on");
+  if (on) strip.scrollLeft = on.offsetLeft - (strip.clientWidth - on.clientWidth) / 2;
+  if (document.getElementById("files-state")) filesState();
+}
+
+const warnCard = (list) => `<section class="card warn"><div class="lbl">Needs you · ${list.length}</div>${list
+  .map((w) => `<div class="w"><div class="wt">${esc(w.title)}</div><div class="wx">${esc(w.text)}</div></div>`).join('<div class="wsep"></div>')}</section>`;
+const qrTile = (b) => (b.files?.[0] ? `<a class="qr" href="${esc(fileUrl(b.files[0]))}" target="_blank" rel="noopener">QR<br>TICKET</a>` : "");
+
+function renderNow(clk) {
+  const { t } = M;
+  if (clk.date < t.start) return renderBefore(clk);
+  if (clk.date > t.end) {
+    return `<section class="card now"><div class="now-lbl"><i></i>TRIP OVER</div><div class="now-title">Welcome home</div>
+<div class="now-note">${rangeT(t.start, t.end)} · ${plural(t.bookings.length, "train")}. The whole trip is still in TRIP.</div>
+<div class="two"><a class="btn pri" href="#trip">Trip</a><a class="btn" href="/guide">Guide</a></div></section>`;
+  }
+  const day = M.days[clk.date], nn = nowNext(day, clk), city = M.stay[clk.date], w = weatherOf(city, clk.date);
+  return `<div class="hd"><span>DAY ${day.n} · ${wdm(clk.date)}</span><span>${esc(city.toUpperCase())}${w ? ` ${w.max}°` : ""}</span></div>`
+    + nowCard(day, nn) + nextCard(day, nn, clk) + tonightCard(clk) + statTiles(day, nn, city, w);
+}
+
+function nowCard(day, nn) {
+  let x = day.items[nn.now], label;
+  if (x) label = nn.early ? `FIRST · ${x.time}` : nn.movedUp ? "NOW · MOVED UP" : `NOW · SINCE ${x.time}`;
+  else if (day.items.length && !day.items.some((i) => i.time)) { x = day.items[0]; label = "TODAY"; }
+  else {
+    const [title, note] = day.items.length ? ["Nothing left today", "The rest of the day is skipped. Undo a skip in DAY."] : ["No plan for today", "Add stops to the plan in trip.json."];
+    return `<section class="card now"><div class="now-lbl"><i></i>NOW</div><div class="now-title">${title}</div><div class="now-note">${note}</div>
+<div class="two"><a class="btn pri" href="#day">Day</a><a class="btn" href="#tools">Tools</a></div></section>`;
+  }
+  return `<section class="card now">
+<div class="row"><div class="now-lbl"><i></i>${label}</div>${label === "TODAY" ? "" : `<button class="skip" data-act="skip" data-id="${esc(x.id)}">SKIP</button>`}</div>
+<div class="now-title">${esc(x.title)}</div>${costLine(x)}
+${x.note ? `<div class="now-note clamp" data-act="clamp">${esc(x.note)}</div>` : ""}
+${x.maps ? `<div class="two"><a class="btn pri" href="${esc(x.maps.url)}" target="_blank" rel="noopener">${x.maps.label}</a><a class="btn" href="https://go.yandex/" target="_blank" rel="noopener">Yandex Go</a></div>` : ""}
+${x.links.length ? `<div class="extra">${x.links.map((l) => link(l, "btn out")).join("")}</div>` : ""}
+</section>`;
+}
+
+function nextCard(day, nn, clk) {
+  let x = day.items[nn.next], when;
+  if (x) when = countdown(toMin(x.time) - clk.min);
+  else {
+    x = M.days[addDays(day.date, 1)]?.items.find((i) => i.time && !store.skipped[i.id]);
+    if (!x) return "";
+    when = "TOMORROW";
+  }
+  const chips = [x.maps, ...x.links].filter(Boolean).map((l) => link(l, "chip")).join("");
+  return `<section class="card next">
+<div class="row lbl"><span>NEXT · ${esc(x.time)}</span><span class="amber">${when}</span></div>
+<div class="next-title">${esc(x.title)}</div>${costLine(x)}
+<div class="chips">${chips}<button class="skip-o" data-act="skip" data-id="${esc(x.id)}">SKIP</button></div>
+</section>`;
+}
+
+// Today's train until it arrives, then tonight's hotel; a warning on a night with no hotel.
+function tonightCard(clk) {
+  const { t } = M, date = clk.date;
+  const b = t.bookings.find((b) => b.date === date && (b.arrDate > date || !b.arr || clk.hm < b.arr));
+  if (b) {
+    const label = clk.hm < b.dep ? (b.dep >= "17:00" ? "TONIGHT" : "TODAY'S TRAIN") : `ON BOARD · ARRIVES ${esc(b.arr)}`;
+    return `<section class="card tonight"><div><div class="lbl">${label}</div><div class="t20">${esc(b.dep)} → ${esc(b.toCity)}</div><div class="sub">${esc(seatText(b))}</div></div>${qrTile(b)}</section>`;
+  }
+  const h = t.hotels.find((h) => h.checkIn <= date && date < h.checkOut);
+  if (h) {
+    return `<section class="card tonight"><div><div class="lbl">TONIGHT · HOTEL</div><div class="t20">${esc(h.name)}</div>
+<div class="sub">${esc(h.city || "")}${date === h.checkIn && h.checkInTime ? ` · check-in ${esc(h.checkInTime)}` : ""}</div></div><a class="qr" href="#tools">SHOW<br>DRIVER</a></section>`;
+  }
+  const g = M.gaps.find((g) => g.from <= date && date < g.to);
+  if (g) return `<section class="card tonight gapc"><div><div class="lbl amber">TONIGHT · NO HOTEL</div><div class="t20">Not booked</div><div class="sub">${esc(g.city)} · ${rangeT(g.from, g.to)}. See TRIP.</div></div></section>`;
+  const ev = t.events.find((e) => e.date === addDays(date, 1) && e.time && e.time < "06:00");
+  if (ev) return `<section class="card tonight"><div><div class="lbl">TONIGHT</div><div class="t20">${esc(plain(ev.title))}</div><div class="sub">${wdT(ev.date)} ${esc(ev.time)}</div></div></section>`;
+  return "";
+}
+
+function statTiles(day, nn, city, w) {
+  const left = nn.now < 0 ? 0 : day.items.filter((x, i) => i > nn.now && x.time && !store.skipped[x.id]).length;
+  return `<div class="stats">
+<div class="tile"><div class="k">LEFT</div><div class="v">${left}</div><div class="u">${left === 1 ? "stop" : "stops"}</div></div>
+<div class="tile"><div class="k">SUNSET</div><div class="v">${w?.sunset ? esc(w.sunset) : "—"}</div><div class="u">today</div></div>
+<a class="tile" href="https://www.yr.no/en/forecast/daily-table/${YR[city] || YR.Tashkent}" target="_blank" rel="noopener"><div class="k">RAIN</div><div class="v">${w?.rain != null ? `${w.rain}%` : "—"}</div><div class="u">forecast ↗</div></a>
+</div>`;
+}
+
+// Before the trip: a countdown to day 1 instead of Now and Next.
+function renderBefore(clk) {
+  const { t } = M, fi = M.days[t.start].items.find((x) => x.time);
+  const diff = Math.max(0, tashMs(t.start, fi?.time || "00:00") - clk.ms);
+  const d = Math.floor(diff / 864e5), h = Math.floor((diff % 864e5) / 36e5), m = Math.floor((diff % 36e5) / 6e4);
+  const days = Math.round((Date.parse(t.start) - Date.parse(clk.date)) / 864e5);
+  const b = t.bookings[0], warn = warnings(clk);
+  return `<div class="hd"><span>BEFORE THE TRIP</span><span>${days === 1 ? "TOMORROW" : `IN ${days} DAYS`}</span></div>
+<section class="card now">
+<div class="now-lbl"><i></i>STARTS · ${wdm(t.start)}${fi ? ` · ${esc(fi.time)}` : ""}</div>
+<div class="now-title">${d ? `${plural(d, "day")}${h ? ` ${h} h` : ""}` : `${h} h ${m} min`}</div>
+<div class="now-note">Day 1: ${esc(M.label[t.start])}.${fi ? ` First stop: ${esc(fi.time)} ${esc(plain(fi.title))}.` : ""}</div>
+<div class="two"><a class="btn pri" href="#day/${t.start}">Day 1</a><a class="btn" href="#trip">Trip</a></div>
+</section>
+${warn.length ? warnCard(warn) : ""}
+${b ? `<section class="card tonight"><div><div class="lbl">FIRST TRAIN · ${wdm(b.date)}</div><div class="t20">${esc(b.dep)} → ${esc(b.toCity)}</div><div class="sub">${esc(seatText(b))}</div></div>${qrTile(b)}</section>` : ""}
+<div class="stats">
+<a class="tile" href="#trip"><div class="k">DAYS</div><div class="v">${M.dates.length}</div><div class="u">${rangeT(t.start, t.end)}</div></a>
+<a class="tile" href="#trip"><div class="k">TRAINS</div><div class="v">${t.bookings.length}</div><div class="u">booked</div></a>
+<a class="tile" href="#trip"><div class="k">HOTELS</div><div class="v">${t.hotels.length}</div><div class="u">${M.gaps.length ? `${plural(M.gaps.length, "gap")}` : "no gaps"}</div></a>
+</div>`;
+}
+
+function renderDay(clk) {
+  const date = M.days[ui.day] ? ui.day : clampDate(clk.date), day = M.days[date], st = statusOf(day, clk);
+  const km = day.items.reduce((s, x) => {
+    const m = x.kind !== "train" && String(x.leg || "").match(/(\d+(?:[.,]\d+)?)\s*km/i);
+    return s + (m ? parseFloat(m[1].replace(",", ".")) : 0);
+  }, 0);
+  const stops = day.items.filter((x) => x.time).length;
+  const strip = M.dates.map((d) => `<a class="dc${d === date ? " on" : ""}${d === clk.date ? " today" : ""}" href="#day/${d}" style="--c:${color(M.stay[d])}" aria-label="${wdT(d)} ${dmT(d)}"><span>${wd(d)}</span><b>${+d.slice(8)}</b></a>`).join("");
+  const rows = day.items.map((x, i) => stopRow(x, st(i), i === day.items.length - 1)).join("");
+  return `<div class="dayhd"><div class="sub13">DAY ${day.n} / ${M.dates.length} · ${km ? `${Math.round(km)} KM IN TOWN` : plural(stops, "STOP")}</div><div class="h28">${esc(M.label[date])}</div></div>
+<nav class="strip" id="strip" aria-label="Days">${strip}</nav>
+<div class="route" id="route">${rows || '<div class="empty">No plan for this day yet.</div>'}</div>`;
+}
+
+function stopRow(x, status, last) {
+  const off = !!store.skipped[x.id], open = ui.notes.has(x.id);
+  const links = off || status === "past" ? "" : [x.maps, ...x.links].filter(Boolean).map((l) => link(l, "schip")).join("");
+  const note = x.note ? `<button class="sbtn" data-act="note" data-id="${esc(x.id)}" aria-expanded="${open}">${open ? "Hide note" : "Note"}</button>` : "";
+  return `<div class="stop ${off ? "off" : status}${x.leg ? "" : " noleg"}">
+<div class="rail"><i class="node"></i>${last && !x.leg ? "" : '<i class="line"></i>'}</div>
+<div class="sbody"><div class="sop"><div class="stitle">${esc(x.title)}</div>${costLine(x)}${open ? `<div class="snote">${esc(x.note)}</div>` : ""}</div>
+<div class="schips">${links}${note}<button class="sbtn skipb" data-act="skip" data-id="${esc(x.id)}">${off ? "Undo skip" : "Skip"}</button></div>
+${x.leg ? `<div class="leg">${esc(x.leg)}</div>` : ""}</div>
+<div class="stime">${esc(x.time || "")}</div>
+</div>`;
+}
+
+function renderTrip(clk) {
+  const { t } = M, warn = warnings(clk);
+  const trains = t.bookings.map(trainCard).join("") + (data.watch || []).map(watchCard).join("");
+  return `<div class="px6"><div class="sub13">${range(t.start, t.end)} · ${plural(t.bookings.length, "TRAIN")} · ${plural(t.hotels.length, "HOTEL")}</div><div class="h28">Trip</div></div>
+<div class="bar px6">${M.segments.map((s) => `<i style="flex:${s.days};background:${color(s.city)}"></i>`).join("")}</div>
+${warn.length ? warnCard(warn) : ""}
+<section class="card days"><div class="lbl"><span>DAYS</span><span>TAP FOR PLAN</span></div>${M.dates.map((d) => tripDay(d, clk)).join("")}</section>
+${trains ? `<div class="lbl sec">Trains</div>${trains}` : ""}
+<div class="lbl sec">Hotels</div>${hotelList()}
+${papers()}`;
+}
+
+function tripDay(date, clk) {
+  const { t } = M, open = ui.openDay === date;
+  const b = t.bookings.filter((b) => b.date === date).sort((x, y) => x.dep.localeCompare(y.dep))[0];
+  const wt = (data.watch || []).find((w) => w.date === date);
+  const ev = t.events.find((e) => e.date === date && e.time && /✈/.test(e.title));
+  let chip = "", cls = "";
+  if (b) chip = b.dep;
+  else if (wt) { chip = wt.trains.some((x) => x.preferred && x.n >= t.passengers) ? "★ seats" : "☆ watch"; cls = " watch"; }
+  else if (ev) chip = `✈ ${ev.time}`;
+  const w = weatherOf(M.stay[date], date);
+  const plan = M.days[date].items.filter((x) => x.time && x.src !== "train").map((x) => plain(x.title)).join(", ");
+  return `<div class="drow${open ? " open" : ""}" data-act="tday" data-date="${date}" role="button" aria-expanded="${open}">
+<div class="dgrid"><div class="dnum"><div class="dwd${date === clk.date ? " teal" : ""}">${wd(date)}</div><div class="dn">${+date.slice(8)}</div></div>
+<i class="cbar" style="background:${color(M.stay[date])}"></i><div class="dcity">${esc(M.label[date])}</div>
+${chip ? `<span class="dchip${cls}">${esc(chip)}</span>` : "<span></span>"}<span class="dtemp">${w ? `${w.max}°` : ""}</span></div>
+${open ? `<div class="dplan">${esc(plan || "No plan yet.")}<a class="dopen" href="#day/${date}">OPEN DAY →</a></div>` : ""}
+</div>`;
+}
+
+function trainCard(b) {
+  const f = b.files?.[0];
+  return `<section class="card tr">
+<div class="row lbl4"><span>${wdm(b.date)} · ${esc(b.train)}</span><span class="teal">BOOKED</span></div>
+<div class="jr"><div><div class="t24">${esc(b.dep)}</div><div class="s12">${esc(b.from)}</div></div><i class="dash"></i>
+<div class="r"><div class="t24">${esc(b.arr || "")}${b.arrDate && b.arrDate !== b.date ? "<sup>+1</sup>" : ""}</div><div class="s12">${esc(b.to)}</div></div></div>
+<div class="row seats"><span>${esc(seatText(b) || "Details in the ticket")}</span>${f ? `<a class="qrc" href="${esc(fileUrl(f))}" target="_blank" rel="noopener">QR</a>` : ""}</div>
+${b.note ? `<div class="tnote">${esc(b.note)}</div>` : ""}
+</section>`;
+}
+
+// A watched train: live seat counts from the seat watcher (KV "state").
+function watchCard(w) {
+  const pref = w.trains.filter((x) => x.preferred), hit = pref.filter((x) => x.n >= M.t.passengers);
+  const status = hit.length ? hit.map((x) => `${x.number} ${x.dep} · ${x.n} seats`).join(", ")
+    : pref.length ? "Sold out · checks every 5 min" : "No matching train · checks every 5 min";
+  const checked = data.last?.at ? ` · checked ${tashHM(Date.parse(data.last.at))}` : "";
+  return `<div class="watch${hit.length ? " hit" : ""}"><div><div class="lbl4">${wdm(w.date)} · WATCHING</div><div class="w15">${esc(status)}</div>
+<div class="s12">${esc(w.from)} → ${esc(w.to)}${w.why ? ` · ${esc(w.why)}` : ""}${checked}</div></div><span class="star">${hit.length ? "★" : "☆"}</span></div>`;
+}
+
+const payment = (h) => h.payment || (h.paid === true ? "paid" : h.paid === false ? "pay at hotel" : String(h.notes || "").match(/\d+% prepaid/i)?.[0] || "");
+function price(p) {
+  if (!p) return "";
+  if (typeof p !== "object") return String(p);
+  const r = data.rates?.[p.currency];
+  return r ? `≈ ${fmt(p.amount / r)} PLN` : `${fmt(p.amount)} ${p.currency}`;
+}
+function hotelList() {
+  const rows = [...M.t.hotels.map((h) => ({ from: h.checkIn, h })), ...M.gaps.map((g) => ({ from: g.from, g }))].sort((a, b) => a.from.localeCompare(b.from));
+  if (!rows.length) return `<section class="card"><div class="sub">No hotels yet.</div></section>`;
+  return `<section class="card hotels">${rows.map(({ h, g }) => (h
+    ? `<div class="hrow"><i class="hbar" style="background:${color(h.city)}"></i><div><div class="hname">${esc(h.name)}</div><div class="hsub">${esc([h.city, payment(h), price(h.price)].filter(Boolean).join(" · "))}</div></div><div class="hdates">${range(h.checkIn, h.checkOut)}</div></div>`
+    : `<div class="hrow gap"><i class="hbar"></i><div><div class="hname">Not booked</div><div class="hsub">${esc(g.city)} · ${plural(g.nights, "night")}</div></div><div class="hdates">${range(g.from, g.to)}</div></div>`)).join("")}</section>`;
+}
+
+function papers() {
+  const slips = M.t.slips || [], ticks = slipTicks();
+  const kept = slips.filter((s, i) => ticks.has(slipId(s, i))).length;
+  const list = ui.slipsOpen && slips.length ? `<section class="card">${slips.map((s, i) => {
+    const id = esc(slipId(s, i)), on = ticks.has(slipId(s, i));
+    return `<div class="krow"><button class="kdot${on ? " on" : ""}" data-act="slip" data-id="${id}" aria-label="Kept: ${esc(s)}"></button><button class="klabel${on ? " done" : ""}" data-act="slip" data-id="${id}">${esc(s)}</button></div>`;
+  }).join("")}<div class="saved">SAME TICKS AS THE GUIDE CHECKLIST</div></section>` : "";
+  return `<section class="card papers"><button class="pt" data-act="slips" aria-expanded="${ui.slipsOpen}"><div class="lbl4">SLIPS</div><div class="t22">${kept} / ${slips.length}</div><div class="s12">keep every one ${ui.slipsOpen ? "▴" : "▾"}</div></button>
+<div class="pt"><div class="lbl4">FILES</div><div class="t22" id="files-state">…</div><div class="s12">tickets &amp; bookings</div></div></section>${list}`;
+}
+
+const allFiles = () => [...new Set([...M.t.bookings, ...M.t.hotels].flatMap((x) => x.files || []))];
+async function filesState() {
+  const el = document.getElementById("files-state");
+  if (!el || !M) return;
+  const files = allFiles();
+  if (!files.length) { el.textContent = "None"; return; }
+  try {
+    const c = await caches.open(CACHE);
+    const n = (await Promise.all(files.map((f) => c.match(fileUrl(f))))).filter(Boolean).length;
+    el.textContent = n === files.length ? "Offline" : `${n} / ${files.length}`;
+  } catch { el.textContent = "Online"; }
+}
+// Keep every ticket and booking file on the phone: stations and trains often have no signal.
+async function precacheFiles() {
+  if (!("caches" in window) || !M) return;
+  try {
+    const c = await caches.open(CACHE);
+    for (const f of allFiles()) {
+      const u = fileUrl(f);
+      if (await c.match(u)) continue;
+      const res = await fetch(u).catch(() => null);
+      if (res && res.ok && !res.redirected) await c.put(u, res);
+    }
+  } catch {}
+  filesState();
+}
+
+const plnText = (uzs, rate) => { const v = uzs / rate; return v < 100 ? v.toFixed(2) : fmt(v); };
+const savedNote = () => `SAVED ON THIS PHONE${store.savedAt ? ` · ${tashHM(Date.parse(store.savedAt))}` : ""}`;
+
+function renderTools(clk) {
+  const rate = data.rates?.UZS || FALLBACK_RATE;
+  const presets = [["15k", 15000], ["100k", 100000], ["425k", 425000], ["1M", 1000000]];
+  const items = store.kitItems, done = items.filter((k) => k.done).length;
+  const kit = items.map((k) => `<div class="krow"><button class="kdot${k.done ? " on" : ""}" data-act="kit-tick" data-id="${esc(k.id)}" aria-label="${k.done ? "Untick" : "Tick"}: ${esc(k.label)}"></button>${ui.kitEdit
+    ? `<input class="kin" data-input="kit-rename" data-id="${esc(k.id)}" value="${esc(k.label)}" enterkeyhint="done" aria-label="Item name"><button class="kdel" data-act="kit-del" data-id="${esc(k.id)}" aria-label="Delete: ${esc(k.label)}">×</button>`
+    : `<button class="klabel${k.done ? " done" : ""}" data-act="kit-tick" data-id="${esc(k.id)}">${esc(k.label)}</button>`}</div>`).join("");
+  return `<div class="h28 px6">Tools</div>
+<section class="card conv"><div class="row lbl"><span>CONVERT</span><span>1 PLN ≈ ${fmt(rate)} UZS</span></div>
+<label class="uzs"><input id="uzs" data-input="uzs" inputmode="numeric" autocomplete="off" value="${ui.uzs ? fmt(ui.uzs) : ""}" aria-label="Amount in UZS"><span class="cur">UZS</span></label>
+<div class="pln"><span id="pln">${plnText(ui.uzs, rate)}</span><span class="cur">PLN</span></div>
+<div class="presets">${presets.map(([l, v]) => `<button data-act="uzs" data-v="${v}">${l}</button>`).join("")}</div></section>
+<section class="card"><div class="row lbl"><span>TODAY'S KIT · ${done}/${items.length}</span><button class="teal" data-act="kit-edit">${ui.kitEdit ? "DONE" : "EDIT"}</button></div>${kit}
+<div class="kadd"><input id="kit-draft" data-input="kit-draft" value="${esc(ui.kitDraft)}" placeholder="Add item…" enterkeyhint="done" autocomplete="off" aria-label="New item"><button class="addb" data-act="kit-add">ADD</button></div>
+<div class="saved" id="kit-saved">${savedNote()}</div></section>
+${sosTiles()}${driverCard(clk)}
+<section class="card"><div class="row lbl"><span>NAVIGATION</span><span>${navBottom() ? "BOTTOM TABS" : "TOP TABS"}</span></div>
+<div class="seg3">${[["auto", "AUTO"], ["top", "TOP"], ["bottom", "BOTTOM"]].map(([m, l]) => `<button class="${store.navMode === m ? "on" : ""}" data-act="nav" data-mode="${m}" aria-pressed="${store.navMode === m}">${l}</button>`).join("")}</div>
+<div class="s13">Auto: bottom tabs when you open the app from the Home Screen, top tabs in Safari.</div></section>
+<div class="foot">${data.last?.at ? `Seats and weather checked ${tashHM(Date.parse(data.last.at))}` : "No seat check yet"} · Tashkent time (UTC+5)<br>
+<a href="/guide">Guide</a> · <a href="/trip">Full plan</a> · <button data-act="logout">Sign out</button></div>`;
+}
+
+function sosTiles() {
+  const list = data.emergency || [["General emergency", "112"], ["Tourist hotline", "1173"]];
+  const big = ["112", "1173"].map((n) => list.find(([, x]) => x === n)).filter(Boolean);
+  const rest = list.filter(([, n]) => n !== "112" && n !== "1173");
+  return `<div class="sos">${big.map(([what, n]) => `<a class="sost${n === "112" ? " red" : ""}" href="tel:${n}"><div class="sn">${n}</div><div class="sw">${n === "112" ? "Emergency" : esc(what)}</div></a>`).join("")}</div>
+${rest.length ? `<div class="sos3">${rest.map(([what, n]) => `<a class="soss" href="tel:${esc(n)}"><b>${esc(n)}</b><span>${esc(what)}</span></a>`).join("")}</div>` : ""}`;
+}
+
+// The hotel for tonight (checkIn <= today < checkOut), in Russian for the taxi driver.
+function driverCard(clk) {
+  const { t } = M;
+  if (clk.date > t.end) return "";
+  const night = clk.date < t.start ? t.start : clk.date, when = clk.date < t.start ? "FIRST NIGHT" : "TONIGHT";
+  const h = t.hotels.find((h) => h.checkIn <= night && night < h.checkOut);
+  if (h) {
+    const note = night === h.checkIn ? `Check-in ${h.checkInTime || ""}` : `Check-out ${wdT(h.checkOut)} ${h.checkOutTime || ""}`;
+    return `<section class="card driver"><div class="row lbl"><span class="amber">${when} · SHOW THE DRIVER</span><span>${range(h.checkIn, h.checkOut)}</span></div>
+<div class="dsub">${esc(h.name)} · ${esc(note.trim())}</div>
+<div class="dru" lang="ru">${esc(h.nameLocal || h.name)}</div><div class="dra" lang="ru">${esc(h.addressLocal || h.address || "")}</div>
+<div class="two"><a class="btn2 teal" href="${esc(gmaps([h.name, h.address].filter(Boolean).join(", ")))}" target="_blank" rel="noopener">Maps ↗</a>${h.phone ? `<a class="btn2" href="tel:${esc(h.phone.replace(/[^\d+]/g, ""))}">Call ${esc(h.phone)}</a>` : ""}</div></section>`;
+  }
+  const g = M.gaps.find((g) => g.from <= night && night < g.to);
+  if (g) return `<section class="card warn"><div class="row lbl"><span>${when} · NO HOTEL</span><span>${range(g.from, g.to)}</span></div><div class="wt">Not booked: ${esc(g.city)}</div><div class="wx">${esc(g.text)}</div></section>`;
+  const b = t.bookings.find((b) => b.date === night && b.arrDate > night);
+  if (b) return `<section class="card driver"><div class="row lbl"><span class="amber">${when} · NIGHT TRAIN</span><span>${range(night, b.arrDate)}</span></div>
+<div class="dsub">${esc(b.train)} · ${esc(seatText(b))}</div><div class="dru">${esc(b.dep)} ${esc(b.from)}</div><div class="dra">Arrives ${esc(b.arr)} · ${esc(b.to)}</div></section>`;
+  return "";
+}
+
+// ---- Sign in ----
+function renderLogin() {
+  const L = ui.login, hero = store.hero;
+  const segs = hero?.segments?.length ? hero.segments : Object.keys(CITY).map((city) => ({ city, days: 1 }));
+  document.documentElement.classList.remove("nav-bottom");
+  $app.innerHTML = `<main class="login">
+<div class="lg-head"><div class="lg-kick">${hero?.start ? `${range(hero.start, hero.end)} ${hero.end.slice(0, 4)} · ` : ""}BY RAIL</div><div class="lg-title">Uzbekistan</div>
+<div class="bar">${segs.map((s) => `<i style="flex:${s.days};background:${color(s.city)}"></i>`).join("")}</div>
+<div class="lg-cities">${[...new Set(segs.map((s) => s.city))].map((c) => `<span style="color:${color(c)}">${esc(c.toUpperCase())}</span>`).join("")}</div></div>
+<form class="lg-form" id="login" novalidate>
+<div class="fld"><label for="lg-user">USERNAME</label><input class="inp${L.err ? " bad" : ""}" id="lg-user" name="user" data-input="lg" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" value="${esc(L.user)}"></div>
+<div class="fld"><label for="lg-pass">PASSWORD</label><div class="pw${L.err ? " bad" : ""}"><input id="lg-pass" name="password" data-input="lg" type="${L.show ? "text" : "password"}" autocomplete="current-password" value="${esc(L.pass)}"><button type="button" data-act="lg-show" aria-pressed="${L.show}">${L.show ? "HIDE" : "SHOW"}</button></div></div>
+${L.err ? `<div class="lg-err" role="alert">${esc(L.err)}</div>` : ""}
+<button class="lg-btn" type="submit"${L.busy ? " disabled" : ""}>${L.busy ? "Signing in…" : "Sign in"}</button>
+<p class="lg-foot">One shared account. You stay signed in on this phone, and the trip works offline after the first visit.</p>
+</form></main>`;
+}
+
+async function submitLogin() {
+  const L = ui.login, f = document.getElementById("login");
+  L.user = f.user.value; L.pass = f.password.value;
+  if (!L.user.trim() || !L.pass) { L.err = "Enter your username and password."; return renderLogin(); }
+  L.err = ""; L.busy = true; renderLogin();
+  let res = null;
+  try {
+    res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: L.user.trim(), password: L.pass }) });
+  } catch {}
+  L.busy = false;
+  if (!res) { L.err = "No connection. Try again when you are online."; return renderLogin(); }
+  if (!res.ok) { L.err = (await res.json().catch(() => null))?.error || "Sign-in failed. Try again."; return renderLogin(); }
+  L.pass = "";
+  history.replaceState(null, "", `${location.pathname}${location.search}#now`);
+  readHash();
+  await loadData(true);
+}
+
+async function logout() {
+  try {
+    const c = await caches.open(CACHE);
+    await c.delete("/api/app");
+    for (const f of M ? allFiles() : []) await c.delete(fileUrl(f));
+  } catch {}
+  location.href = "/logout";
+}
+
+function renderMessage(title, text) {
+  $app.innerHTML = `<main class="scr"><section class="card now"><div class="now-lbl"><i></i>TRIP</div><div class="now-title">${esc(title)}</div>
+<div class="now-note">${esc(text)}</div><div class="two"><button class="btn pri" data-act="retry">Try again</button></div></section></main>`;
+}
+
+// ---- Data ----
+async function loadData(show) {
+  let res = null;
+  try { res = await fetch("/api/app", { headers: { Accept: "application/json" }, cache: "no-store" }); } catch {}
+  if (res?.status === 401) { data = M = null; lastText = ""; return renderLogin(); }
+  if (!res || !res.ok) {
+    if (!data) renderMessage(res ? "Something went wrong" : "No connection", res ? `The server answered ${res.status}. Try again in a minute.` : "Open the app once with a connection. After that it works offline.");
+    return;
+  }
+  const text = await res.text();
+  if (data && text === lastText) return;
+  lastText = text; data = JSON.parse(text); M = build(data);
+  if (data.trip.start) { store.hero = { start: data.trip.start, end: data.trip.end, segments: M.segments }; persist(); }
+  if (show || !typing()) render(); else dirty = true;
+  precacheFiles();
+}
+
+// Re-render once a minute so Now and Next move on; never while the user is typing.
+let lastMinute = "", dirty = false;
+function tick() {
+  if (!M) return;
+  const c = clock(), k = c.date + c.hm;
+  if (k !== lastMinute) { lastMinute = k; dirty = true; }
+  if (dirty && !typing()) render();
+}
+
+function readHash() {
+  const [tab, date] = decodeURIComponent(location.hash.slice(1)).split("/");
+  ui.tab = TABS.includes(tab) ? tab : "now";
+  ui.day = ui.tab === "day" && /^\d{4}-\d{2}-\d{2}$/.test(date || "") ? date : null;
+}
+
+// ---- Events ----
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const a = e.target.closest("a[href]");
+  if (a && a !== el && el.contains(a)) return; // a link inside a tappable row: follow the link
+  const id = el.dataset.id;
+  switch (el.dataset.act) {
+    case "skip": if (store.skipped[id]) delete store.skipped[id]; else store.skipped[id] = true; save(); render(); break;
+    case "note": if (ui.notes.has(id)) ui.notes.delete(id); else ui.notes.add(id); render(); break;
+    case "clamp": el.classList.toggle("clamp"); break;
+    case "tday": ui.openDay = ui.openDay === el.dataset.date ? null : el.dataset.date; render(); break;
+    case "slips": ui.slipsOpen = !ui.slipsOpen; render(); break;
+    case "slip": toggleSlip(id); render(); break;
+    case "kit-edit":
+      if (ui.kitEdit) { store.kitItems = store.kitItems.filter((k) => k.label.trim()); save(); }
+      ui.kitEdit = !ui.kitEdit; render(); break;
+    case "kit-tick": store.kitItems = store.kitItems.map((k) => (k.id === id ? { ...k, done: !k.done } : k)); save(); render(); break;
+    case "kit-del": store.kitItems = store.kitItems.filter((k) => k.id !== id); save(); render(); break;
+    case "kit-add": addKit(); break;
+    case "uzs": ui.uzs = +el.dataset.v; render(); break;
+    case "nav": store.navMode = el.dataset.mode; save(); render(); break;
+    case "lg-show": {
+      const f = document.getElementById("login");
+      ui.login.user = f.user.value; ui.login.pass = f.password.value; ui.login.show = !ui.login.show;
+      renderLogin(); document.getElementById("lg-pass").focus(); break;
+    }
+    case "logout": logout(); break;
+    case "retry": loadData(true); break;
+  }
+});
+
+function addKit() {
+  const label = ui.kitDraft.trim();
+  if (!label) return;
+  store.kitItems = [...store.kitItems, { id: "k" + Date.now().toString(36), label, done: false }];
+  ui.kitDraft = ""; save(); render();
+  document.getElementById("kit-draft")?.focus();
+}
+
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  switch (el.dataset.input) {
+    case "uzs": {
+      const digits = el.value.replace(/\D/g, "").slice(0, 12);
+      ui.uzs = +digits || 0;
+      el.value = digits ? fmt(ui.uzs) : "";
+      document.getElementById("pln").textContent = plnText(ui.uzs, data.rates?.UZS || FALLBACK_RATE);
+      break;
+    }
+    case "kit-rename": {
+      const k = store.kitItems.find((k) => k.id === el.dataset.id);
+      if (k) { k.label = el.value; save(); document.getElementById("kit-saved").textContent = savedNote(); }
+      break;
+    }
+    case "kit-draft": ui.kitDraft = el.value; break;
+    case "lg":
+      if (ui.login.err) {
+        ui.login.err = "";
+        document.querySelector(".lg-err")?.remove();
+        document.querySelectorAll(".bad").forEach((n) => n.classList.remove("bad"));
+      }
+      break;
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  if (e.target.id === "kit-draft") { e.preventDefault(); addKit(); }
+  else if (e.target.dataset?.input === "kit-rename") { e.preventDefault(); e.target.blur(); }
+});
+document.addEventListener("submit", (e) => { if (e.target.id === "login") { e.preventDefault(); submitLogin(); } });
+document.addEventListener("focusout", () => setTimeout(tick, 0));
+
+// Swipe left or right on the route to change the day.
+let touch = null;
+document.addEventListener("touchstart", (e) => {
+  touch = ui.tab === "day" && e.target.closest("#route") ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+}, { passive: true });
+document.addEventListener("touchend", (e) => {
+  if (!touch || !M) return;
+  const dx = e.changedTouches[0].clientX - touch.x, dy = e.changedTouches[0].clientY - touch.y;
+  touch = null;
+  if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+  const cur = M.days[ui.day] ? ui.day : clampDate(clock().date), next = M.dates[M.dates.indexOf(cur) + (dx < 0 ? 1 : -1)];
+  if (next) location.hash = `#day/${next}`;
+}, { passive: true });
+
+window.addEventListener("hashchange", () => { readHash(); render(); window.scrollTo(0, 0); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && M) { tick(); loadData(false); } });
+matchMedia("(display-mode: standalone)").addEventListener?.("change", render);
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+readHash();
+loadData(true);
+setInterval(tick, 15000);
+setInterval(() => loadData(false), 5 * 60000);
+</script>
+</body>
+</html>

@@ -7,20 +7,25 @@
     { "date": "2030-05-01", "dep": "08:00", "arrDate": "2030-05-01", "arr": "10:10",
       "from": "Tashkent", "to": "Samarkand", "fromCity": "Tashkent", "toCity": "Samarkand",
       "train": "760ФА", "kind": "Afrosiyob (fast)", "car": "03", "carClass": "Sitting 2E", "seat": "010", "price": 300000,
+      "refundUntil": "2030-05-01T07:00",
       "files": ["tickets/2030-05-01-tashkent-samarkand.pdf"] }
   ],
   "hotels": [
     { "city": "Samarkand", "name": "Example Hotel", "address": "1 Example Street, Samarkand", "nameLocal": "Отель «Пример»", "addressLocal": "Самарканд, ул. Примерная, 1",
+      "phone": "+998 00 000 00 00",
       "checkIn": "2030-05-01", "checkInTime": "14:00", "checkOut": "2030-05-03", "checkOutTime": "12:00",
-      "paid": false, "price": { "amount": 120, "currency": "EUR" }, "notes": "Pay at the desk with a physical card.", "files": ["hotels/example-hotel.pdf"] }
+      "paid": false, "payment": "pay at hotel", "price": { "amount": 120, "currency": "EUR" }, "notes": "Pay at the desk with a physical card.", "files": ["hotels/example-hotel.pdf"] }
   ],
   "events": [{ "date": "2030-05-01", "time": "06:00", "title": "✈️ Land in Tashkent", "short": "✈️ Land" }],
   "planned": [],
   "watch": [{ "date": "2030-05-03", "from": "Samarkand", "to": "Bukhara", "after": "06:00", "fastOnly": true, "priority": true,
     "why": "Daytime fast train" }],
   "plan": {
-    "2030-05-02": [{ "time": "08:00", "tag": "sight", "title": "Registan at opening", "cost": "100k UZS", "note": "Before the tour groups.",
-      "map": "Registan, Samarkand", "links": [{ "label": "Tickets", "url": "https://example.com/tickets" }] }]
+    "2030-05-02": [
+      { "time": "08:00", "tag": "sight", "kind": "sight", "title": "Registan at opening", "cost": "100k UZS", "note": "Before the tour groups.",
+        "map": "Registan, Samarkand", "leg": "Walk 10 min", "book": true, "links": [{ "label": "Tickets", "url": "https://example.com/tickets" }] },
+      { "time": "10:30", "tag": "food", "title": "Plov at Example Osh", "map": "Example Osh, Samarkand" }
+    ]
   },
   "slips": ["Samarkand hotel, 1–3 May"]
 }

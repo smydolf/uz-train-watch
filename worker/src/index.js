@@ -1,6 +1,7 @@
 import { renderTrip } from "./trip.js";
 import { nav } from "./nav.js";
 import { renderGuide } from "./guide.js";
+import { APP_HTML, ICONS, MANIFEST, appPayload } from "./app.js";
 
 // Watch eticket.uzrailpass.uz for free seats and alert on Telegram; serve the trip pages.
 // Cron runs every 5 minutes. Alerts only when a train goes from < passengers to >= passengers seats.
@@ -240,20 +241,51 @@ async function check(env, state, trip) {
     summary: `checked ${Object.keys(seats).length} trains (${pref.length} preferred), ${avail} preferred with ${PASSENGERS}+ seats, ${found.length} new, ${lowAlerts.length} low-seat warnings` };
 }
 
-// Offline copy of /trip and /guide: network first, cached copy when there is no signal (trains, desert).
+// Offline copy of /app, its data, /trip, /guide and the ticket files: network first, the cached copy when
+// there is no signal (trains, desert). A slow network falls back to the cached copy after 4 seconds.
+// Google Fonts are cache first. The cache name stays "uz-trip-v1": /trip and /app also put files in it.
 const SERVICE_WORKER = `
 const CACHE = "uz-trip-v1";
-self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/trip", "/guide"]))); });
+const PAGES = ["/app", "/api/app", "/trip", "/guide", "/manifest.webmanifest", "/app-icon-180.png", "/app-icon-512.png"];
+const FONTS = ["https://fonts.googleapis.com", "https://fonts.gstatic.com"];
+// A redirect means the session expired (login page), and 401 means signed out: never cache those.
+// Every response body must be read or cancelled: an unread body keeps its request open and stalls later fetches.
+const cacheable = (res) => res.ok && !res.redirected;
+const keep = (key, res) => { if (cacheable(res)) { const copy = res.clone(); return caches.open(CACHE).then((c) => c.put(key, copy)); } };
+self.addEventListener("install", (e) => {
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.all(PAGES.map((p) => fetch(p)
+    .then((res) => (cacheable(res) ? c.put(p, res) : res.body?.cancel())).catch(() => {})))));
+});
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  const ours = ["/trip", "/guide"].includes(url.pathname) || url.pathname.startsWith("/files/");
-  if (e.request.method !== "GET" || url.origin !== location.origin || !ours) return;
-  e.respondWith(fetch(e.request).then((res) => {
-    // A redirect means the session expired (login page): never cache that over the real page.
-    if (res.ok && !res.redirected) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(url.pathname, copy)); }
-    return res;
-  }).catch(() => caches.match(url.pathname)));
+  if (e.request.method !== "GET") return;
+  if (FONTS.includes(url.origin)) {
+    e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
+      if (res.ok || res.type === "opaque") { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
+      return res;
+    })));
+    return;
+  }
+  const ours = PAGES.includes(url.pathname) || url.pathname.startsWith("/files/");
+  if (url.origin !== location.origin || !ours) return;
+  const key = url.pathname; // "/app?at=…" and "/app" share one copy
+  const net = fetch(e.request);
+  // Registered first, so it clones the response before the page starts reading the body.
+  e.waitUntil(net.then((res) => keep(key, res)).catch(() => {}));
+  e.respondWith((async () => {
+    try {
+      const first = await Promise.race([net, new Promise((r) => setTimeout(r, 4000, "slow"))]);
+      if (first !== "slow") return first;
+      const hit = await caches.match(key);
+      if (!hit) return await net;
+      net.then((res) => res.body?.cancel()).catch(() => {}); // the cache copy still gets the full body
+      return hit;
+    } catch {
+      return (await caches.match(key)) || Response.error();
+    }
+  })());
 });`;
 
 // Sign-in: one account. APP_USER and APP_PASSWORD are Worker secrets. A successful sign-in sets a
@@ -295,21 +327,39 @@ button{margin-top:18px;width:100%;font:inherit;font-weight:600;padding:12px;bord
 <button>Sign in</button>${error ? `<div class="err">${error}</div>` : ""}</form></body></html>`,
     { status: error ? 401 : 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
-async function handleLogin(request, env) {
-  if (request.method !== "POST") return loginPage();
-  if (!env.APP_USER || !env.APP_PASSWORD) return loginPage("Sign-in is not configured yet.");
+// One sign-in attempt, shared by the /login form and the /app sign-in. Returns the session cookie, or an
+// error with its HTTP status.
+async function tryLogin(env, user, password) {
+  if (!env.APP_USER || !env.APP_PASSWORD) return { status: 503, error: "Sign-in is not configured yet." };
   const fails = (await env.STATE.get("login-fails", "json")) ?? { n: 0, since: 0 };
   const recent = Date.now() - fails.since < LOCK_MS ? fails : { n: 0, since: Date.now() };
-  if (recent.n >= MAX_FAILS) return loginPage("Too many attempts. Try again in 15 minutes.");
-  const form = await request.formData();
-  const ok = (await same(String(form.get("user") ?? ""), env.APP_USER)) & (await same(String(form.get("password") ?? ""), env.APP_PASSWORD));
+  if (recent.n >= MAX_FAILS) return { status: 429, error: "Too many attempts. Try again in 15 minutes." };
+  const ok = (await same(user, env.APP_USER)) & (await same(password, env.APP_PASSWORD));
   if (!ok) {
     await env.STATE.put("login-fails", JSON.stringify({ n: recent.n + 1, since: recent.since }), { expirationTtl: 3600 });
-    return loginPage("Wrong user or password.");
+    return { status: 401, error: "Wrong username or password." };
   }
   const exp = String(Date.now() + SESSION_DAYS * 86400000);
-  return new Response(null, { status: 303, headers: { Location: "/trip",
-    "Set-Cookie": `session=${exp}.${await hmac(env, exp)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Lax` } });
+  return { cookie: `session=${exp}.${await hmac(env, exp)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Lax` };
+}
+async function handleLogin(request, env) {
+  if (request.method !== "POST") return loginPage();
+  const form = await request.formData();
+  const r = await tryLogin(env, String(form.get("user") ?? ""), String(form.get("password") ?? ""));
+  if (r.error) return loginPage(r.error);
+  return new Response(null, { status: 303, headers: { Location: "/trip", "Set-Cookie": r.cookie } });
+}
+const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status,
+  headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers } });
+// JSON sign-in for /app: { user, password } in, { ok } or { error } out.
+async function apiLogin(request, env) {
+  if (request.method !== "POST") return json({ error: "Use POST." }, 405);
+  const body = await request.json().catch(() => ({}));
+  const user = String(body.user ?? ""), password = String(body.password ?? "");
+  if (!user || !password) return json({ error: "Enter your username and password." }, 400);
+  const r = await tryLogin(env, user, password);
+  if (r.error) return json({ error: r.error }, r.status);
+  return json({ ok: true }, 200, { "Set-Cookie": r.cookie });
 }
 
 export default {
@@ -335,16 +385,28 @@ export default {
     }
   },
 
-  // Pages: /trip (plan), /guide (reference), /files/<name> (tickets, bookings), /status (JSON). "/" opens /trip.
-  // Everything except /login and /sw.js needs a signed-in session.
+  // Pages: /app (mobile app, its data at /api/app), /trip (plan), /guide (reference), /files/<name> (tickets,
+  // bookings), /status (JSON). "/" opens /app. The /app shell, its manifest and icons hold no personal data
+  // and are public (the manifest is fetched without cookies); everything else except /login, /api/login and
+  // /sw.js needs a signed-in session.
   async fetch(request, env) {
     const url = new URL(request.url), path = url.pathname;
-    if (path === "/login") return handleLogin(request, env);
-    if (path === "/logout") return new Response(null, { status: 303, headers: { Location: "/login", "Set-Cookie": "session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax" } });
-    if (path === "/sw.js") return new Response(SERVICE_WORKER, { headers: { "Content-Type": "text/javascript", "Cache-Control": "no-store" } });
-    if (!(await signedIn(request, env))) return Response.redirect(new URL("/login", request.url), 302);
     const html = (body) => new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
-    if (path === "/") return Response.redirect(new URL("/trip", request.url), 302);
+    if (path === "/login") return handleLogin(request, env);
+    if (path === "/logout") return new Response(null, { status: 303, headers: { Location: "/app", "Set-Cookie": "session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax" } });
+    if (path === "/sw.js") return new Response(SERVICE_WORKER, { headers: { "Content-Type": "text/javascript", "Cache-Control": "no-store" } });
+    if (path === "/app") return html(APP_HTML);
+    if (path === "/manifest.webmanifest") return new Response(MANIFEST, { headers: { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=86400" } });
+    if (ICONS[path]) return new Response(ICONS[path], { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" } });
+    if (path === "/api/login") return apiLogin(request, env);
+    if (!(await signedIn(request, env))) {
+      return path.startsWith("/api/") ? json({ error: "Sign in first." }, 401) : Response.redirect(new URL("/login", request.url), 302);
+    }
+    if (path === "/") return Response.redirect(new URL("/app", request.url), 302);
+    if (path === "/api/app") {
+      const [trip, state] = await Promise.all([loadTrip(env), loadState(env)]);
+      return json(appPayload(trip, state));
+    }
     if (path.startsWith("/files/")) {
       // Files are stored in KV as "file:<name>" with their content type in the metadata.
       const name = decodeURIComponent(path.slice(7));

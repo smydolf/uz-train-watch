@@ -4,10 +4,32 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
 
 - **Seat watcher**: every 5 minutes it checks eticket.uzrailpass.uz for the trains you watch and sends
   Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats).
+- **/app**: the phone app, with 4 tabs. `/` opens it.
+  - **NOW** shows what to do now and next, tonight's train or hotel, and the stops left today.
+  - **DAY** shows one day as a route line, with Maps links and Skip.
+  - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
+  - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
+    in Russian for the taxi driver.
 - **/trip**: day-by-day plan with booked trains, hotels, ticket files, live seats and a daily weather forecast.
 - **/guide**: city sheets (tickets, where to eat, scams), money, documents, phrases, checklists and a map.
 
-Everything is behind a password sign-in (one account). Both pages work offline after one visit.
+Everything is behind a password sign-in (one account). All pages work offline after one visit.
+
+## The app (/app)
+
+- All "now" logic uses Tashkent time (UTC+5), not the phone's time. To test another moment, add
+  `?at=2026-10-02T12:40` (Tashkent time) to the URL, for example `/app?at=2026-10-05T08:30#day/2026-10-05`.
+- Tabs have their own URLs: `#now`, `#day/2026-10-02`, `#trip`, `#tools`.
+- In a Safari tab the tabs sit at the top, clear of Safari's address bar. When you open the app from the
+  Home Screen ("Add to Home Screen"), the tabs move to the bottom. TOOLS → Navigation overrides this.
+- Kit items, skipped stops and the navigation setting are kept on each phone, in `localStorage` key
+  `tripagent.uz.v1`. Registration-slip ticks are the same as in the /guide checklist.
+- Optional fields in `trip.json` that the app uses (see `trip.example.json`):
+  - on plan items: `kind` (move, food, sight, train, hotel or note; else taken from `tag`), `map`, `leg`
+    (transport to the next stop, for example `Taxi 4 km · 10 min`), `book`, `links` and `id` (a stable id
+    for skips; else the title is used);
+  - on hotels: `phone`, `nameLocal`, `addressLocal`, `payment` (for example `50% prepaid`);
+  - on bookings: `refundUntil` (for example `2026-10-02T18:48`; else it is read from the note).
 
 ## Private data
 
