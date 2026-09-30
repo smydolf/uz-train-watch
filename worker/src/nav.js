@@ -12,7 +12,7 @@ export function nav(active) {
 </style>
 <nav class="tn-bar" aria-label="Main"><div class="tn-in">
   <a class="tn-brand" href="/trip">🇺🇿 Uzbekistan</a>
-  ${link("/trip", "trip", "🚆 Trip")}${link("/guide", "guide", "📖 Guide")}
+  ${link("/trip", "trip", "🚆 Trip")}${link("/guide", "guide", "📖 Guide")}<a href="/logout" class="tn-link" title="Sign out">⎋</a>
 </div></nav>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>`;
 }

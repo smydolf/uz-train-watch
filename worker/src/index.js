@@ -239,38 +239,66 @@ self.addEventListener("fetch", (e) => {
   const ours = ["/trip", "/guide"].includes(url.pathname) || url.pathname.startsWith("/files/");
   if (e.request.method !== "GET" || url.origin !== location.origin || !ours) return;
   e.respondWith(fetch(e.request).then((res) => {
-    // A redirect means the Access session expired (login page): never cache that over the real page.
+    // A redirect means the session expired (login page): never cache that over the real page.
     if (res.ok && !res.redirected) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(url.pathname, copy)); }
     return res;
   }).catch(() => caches.match(url.pathname)));
 });`;
 
-// Cloudflare Access puts a signed JWT in the Cf-Access-Jwt-Assertion header. Verify it against the team's
-// public keys (RS256) and the application audience, so the Worker is closed even if Access is misconfigured.
-// ACCESS_TEAM ("<team>.cloudflareaccess.com") and ACCESS_AUD are Worker variables; without them nothing is served.
-let accessKeys = null;
-async function checkAccess(request, env) {
-  if (env.DRY_RUN) return null; // local testing only
-  const deny = (why) => new Response(`Access denied: ${why}`, { status: 403 });
-  if (!env.ACCESS_TEAM || !env.ACCESS_AUD) return deny("Cloudflare Access is not configured");
-  const token = request.headers.get("Cf-Access-Jwt-Assertion");
-  if (!token) return deny("sign in through Cloudflare Access");
-  try {
-    const [h, p, sig] = token.split(".");
-    const dec = (x) => JSON.parse(atob(x.replace(/-/g, "+").replace(/_/g, "/")));
-    const header = dec(h), payload = dec(p);
-    if (!accessKeys) accessKeys = (await (await fetch(`https://${env.ACCESS_TEAM}/cdn-cgi/access/certs`)).json()).keys;
-    const jwk = accessKeys.find((k) => k.kid === header.kid);
-    if (!jwk) { accessKeys = null; return deny("unknown signing key"); }
-    const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
-    const bytes = Uint8Array.from(atob(sig.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
-    const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, bytes, new TextEncoder().encode(`${h}.${p}`));
-    const aud = [].concat(payload.aud);
-    if (!ok || !aud.includes(env.ACCESS_AUD) || payload.exp * 1000 < Date.now()) return deny("invalid token");
-    return null;
-  } catch {
-    return deny("invalid token");
+// Sign-in: one account. APP_USER and APP_PASSWORD are Worker secrets. A successful sign-in sets a
+// cookie "session=<expiry>.<hmac>" signed with a key derived from the password, so changing the
+// password signs every device out. After 10 failed attempts in 15 minutes, sign-in locks for 15 minutes.
+const SESSION_DAYS = 365, MAX_FAILS = 10, LOCK_MS = 15 * 60 * 1000;
+const enc = new TextEncoder();
+const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function hmac(env, text) {
+  const key = await crypto.subtle.importKey("raw", enc.encode(`session-v1:${env.APP_PASSWORD}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return b64url(await crypto.subtle.sign("HMAC", key, enc.encode(text)));
+}
+// Compare digests, not the raw strings, so the comparison time does not leak the password.
+async function same(a, b) {
+  const [x, y] = await Promise.all([a, b].map((v) => crypto.subtle.digest("SHA-256", enc.encode(v))));
+  return crypto.subtle.timingSafeEqual(x, y);
+}
+async function signedIn(request, env) {
+  if (env.DRY_RUN) return true; // local testing only
+  if (!env.APP_USER || !env.APP_PASSWORD) return false;
+  const cookie = (request.headers.get("Cookie") ?? "").split(/;\s*/).find((c) => c.startsWith("session="));
+  const [exp, sig] = (cookie?.slice(8) ?? "").split(".");
+  return !!exp && +exp > Date.now() && (await same(sig ?? "", await hmac(env, exp)));
+}
+function loginPage(error = "") {
+  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in</title><style>
+:root{--bg:#f4f4f7;--card:#fff;--text:#15151a;--muted:#6e6e7a;--line:#e4e4ea;--accent:#4f46e5}
+@media (prefers-color-scheme:dark){:root{--bg:#0d0d11;--card:#17171d;--text:#f1f1f4;--muted:#8d8d99;--line:#2a2a33;--accent:#818cf8}}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:16px/1.5 -apple-system,system-ui,sans-serif}
+form{width:min(340px,calc(100vw - 32px));background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px}
+h1{margin:0 0 16px;font-size:22px}label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+input{width:100%;box-sizing:border-box;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+button{margin-top:18px;width:100%;font:inherit;font-weight:600;padding:12px;border:0;border-radius:12px;background:var(--accent);color:#fff}
+.err{color:#dc2626;font-size:14px;margin-top:12px}
+</style></head><body><form method="post" action="/login"><h1>🇺🇿 Uzbekistan trip</h1>
+<label for="u">User</label><input id="u" name="user" autocomplete="username" autocapitalize="none" required>
+<label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
+<button>Sign in</button>${error ? `<div class="err">${error}</div>` : ""}</form></body></html>`,
+    { status: error ? 401 : 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+async function handleLogin(request, env) {
+  if (request.method !== "POST") return loginPage();
+  if (!env.APP_USER || !env.APP_PASSWORD) return loginPage("Sign-in is not configured yet.");
+  const fails = (await env.STATE.get("login-fails", "json")) ?? { n: 0, since: 0 };
+  const recent = Date.now() - fails.since < LOCK_MS ? fails : { n: 0, since: Date.now() };
+  if (recent.n >= MAX_FAILS) return loginPage("Too many attempts. Try again in 15 minutes.");
+  const form = await request.formData();
+  const ok = (await same(String(form.get("user") ?? ""), env.APP_USER)) & (await same(String(form.get("password") ?? ""), env.APP_PASSWORD));
+  if (!ok) {
+    await env.STATE.put("login-fails", JSON.stringify({ n: recent.n + 1, since: recent.since }), { expirationTtl: 3600 });
+    return loginPage("Wrong user or password.");
   }
+  const exp = String(Date.now() + SESSION_DAYS * 86400000);
+  return new Response(null, { status: 303, headers: { Location: "/trip",
+    "Set-Cookie": `session=${exp}.${await hmac(env, exp)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Lax` } });
 }
 
 export default {
@@ -296,14 +324,15 @@ export default {
   },
 
   // Pages: /trip (plan), /guide (reference), /files/<name> (tickets, bookings), /status (JSON). "/" opens /trip.
-  // Everything sits behind Cloudflare Access; requests without a valid Access token get 403.
+  // Everything except /login and /sw.js needs a signed-in session.
   async fetch(request, env) {
     const url = new URL(request.url), path = url.pathname;
-    const denied = await checkAccess(request, env);
-    if (denied) return denied;
+    if (path === "/login") return handleLogin(request, env);
+    if (path === "/logout") return new Response(null, { status: 303, headers: { Location: "/login", "Set-Cookie": "session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax" } });
+    if (path === "/sw.js") return new Response(SERVICE_WORKER, { headers: { "Content-Type": "text/javascript", "Cache-Control": "no-store" } });
+    if (!(await signedIn(request, env))) return Response.redirect(new URL("/login", request.url), 302);
     const html = (body) => new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
     if (path === "/") return Response.redirect(new URL("/trip", request.url), 302);
-    if (path === "/sw.js") return new Response(SERVICE_WORKER, { headers: { "Content-Type": "text/javascript", "Cache-Control": "no-store" } });
     if (path.startsWith("/files/")) {
       // Files are stored in KV as "file:<name>" with their content type in the metadata.
       const name = decodeURIComponent(path.slice(7));

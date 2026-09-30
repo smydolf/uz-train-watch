@@ -7,7 +7,7 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
 - **/trip**: day-by-day plan with booked trains, hotels, ticket files, live seats and a daily weather forecast.
 - **/guide**: city sheets (tickets, where to eat, scams), money, documents, phrases, checklists and a map.
 
-Everything is behind Cloudflare Access. Both pages work offline after one visit.
+Everything is behind a password sign-in (one account). Both pages work offline after one visit.
 
 ## Private data
 
@@ -28,8 +28,8 @@ scripts/upload.sh
 ## Secrets and variables (Cloudflare, not in git)
 
 - `TELEGRAM_TOKEN`: bot token. Every private chat that messages the bot gets alerts (max 5).
-- `ACCESS_TEAM`, `ACCESS_AUD`: Cloudflare Access team domain and application audience. Without them
-  the Worker serves nothing.
+- `APP_USER`, `APP_PASSWORD`: the one account for signing in. Without them nobody can sign in.
+  Changing the password signs every device out.
 
 ## Deploy
 
