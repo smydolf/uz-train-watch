@@ -45,6 +45,9 @@ input:focus-visible{outline:0}
 /* Safari's address bar sits over the bottom ~90px: keep that free in the browser. */
 .scr{display:flex;flex-direction:column;gap:12px;padding:8px 16px calc(96px + var(--sb))}
 .nav-bottom .scr{padding-top:calc(var(--st) + 14px);padding-bottom:calc(80px + var(--sb))}
+/* From the Home Screen the status bar is transparent: give it a solid backdrop, or iOS blurs the content that
+   scrolls under it. */
+.nav-bottom body::before{content:"";position:fixed;z-index:30;top:0;left:0;right:0;height:var(--st);background:var(--bg)}
 .sim{display:block;text-align:center;font:600 11px var(--mono);letter-spacing:.06em;color:var(--amber);background:var(--amber-bg);border-radius:10px;padding:8px 10px}
 
 .card{background:var(--card);border-radius:24px;padding:18px 20px;display:flex;flex-direction:column;gap:6px;min-width:0}
