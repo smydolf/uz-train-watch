@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "uz-train-watch",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-20",
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "kv_namespaces": [{ "binding": "STATE" }],
+  "observability": { "enabled": true },
+  // The travel guide is imported as a string (src/guide.html).
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }]
+}
