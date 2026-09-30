@@ -31,10 +31,6 @@ To get the live data on a new machine (it overwrites the local `trip.json` and `
 scripts/pull.sh
 ```
 
-To replace a single day of the plan without a local `trip.json`, run the **Update day plan** workflow
-(Actions tab) with the day as JSON: `{"date": "YYYY-MM-DD", "slots": [...]}`. It merges the day into the
-stored trip and keeps the previous version under the KV key `trip:backup:<run id>`.
-
 ## Working from Claude in the cloud
 
 A cloud session has the code from GitHub but not the private data. Give its environment:
