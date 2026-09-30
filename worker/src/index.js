@@ -289,7 +289,7 @@ h1{margin:0 0 16px;font-size:22px}label{display:block;font-size:13px;color:var(-
 input{width:100%;box-sizing:border-box;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
 button{margin-top:18px;width:100%;font:inherit;font-weight:600;padding:12px;border:0;border-radius:12px;background:var(--accent);color:#fff}
 .err{color:#dc2626;font-size:14px;margin-top:12px}
-</style></head><body><form method="post" action="/login"><h1>🇺🇿 Uzbekistan trip</h1>
+</style></head><body><form method="post" action="/login"><h1>Uzbekistan trip 🇺🇿</h1>
 <label for="u">User</label><input id="u" name="user" autocomplete="username" autocapitalize="none" required>
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
 <button>Sign in</button>${error ? `<div class="err">${error}</div>` : ""}</form></body></html>`,
