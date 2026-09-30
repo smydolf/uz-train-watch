@@ -33,8 +33,8 @@ function wxHtml(w, cls = "wx", city = "Tashkent", date = "") {
   // The script at the end of the page points the link at that day's hour-by-hour table when yr.no covers it.
   return `<a class="${cls}" href="${yrLink(city)}" data-yr="${YR[city] ?? YR.Tashkent}" data-date="${date}" target="_blank" rel="noopener" title="${label} · full forecast on yr.no">${icon} ${w.max}° / ${w.min}°${w.rain ? ` · 💧${w.rain}%` : ""}${w.sunset ? ` · 🌇 ${w.sunset}` : ""} ↗</a>`;
 }
-const fileLinks = (files = []) => files.length
-  ? `<div class="files">${files.map((f) => `<a class="file" href="/files/${encodeURIComponent(f)}" target="_blank">📎 ${esc(f.split("/").pop())}</a>`).join("")}</div>` : "";
+const fileLinks = (files = [], label = "") => files.length
+  ? `<div class="files">${files.map((f) => `<a class="file" href="/files/${encodeURIComponent(f)}" target="_blank">${label || `📎 ${esc(f.split("/").pop())}`}</a>`).join("")}</div>` : "";
 function hotelCard(h, rates) {
   const meta = [
     h.checkInTime && `<span class="pill">Check-in ${esc(h.checkInTime)}</span>`,
@@ -165,15 +165,15 @@ export function renderTrip({ bookings, events, legs, names, seats, trains, last,
       const meta = [
         `<span class="pill">🚆 ${esc(b.train)} · ${esc(b.kind)}</span>`,
         b.car && `<span class="pill">Car ${esc(b.car)} · ${esc(b.carClass)}</span>`,
-        b.seat && `<span class="pill">Seat ${esc(b.seat)}</span>`,
-        b.price && `<span class="pill">💰 ${esc(money(b.price, "UZS", rates))}</span>`,
+        b.seat && `<span class="pill">💺 ${esc(b.seat)}</span>`,
+        b.price && `<span class="pill">💰 ${esc(money(b.price, "UZS", rates))}${b.perPerson ? " per person" : ""}</span>`,
       ].filter(Boolean).join("");
       timeline.push({ time: b.dep, html: `
       <div class="card booked-card">
         <div class="card-head"><span class="badge ok">Booked</span></div>
         ${journey({ dep: b.dep, arr: b.arr, from: b.from, to: b.to, duration: durOf(b), nextDay: b.arrDate !== b.date })}
         <div class="pills">${meta}</div>
-        ${b.note ? `<div class="note">⚠️ ${esc(b.note)}</div>` : ""}${fileLinks(b.files)}
+        ${b.note ? `<div class="note">ℹ️ ${esc(b.note)}</div>` : ""}${fileLinks(b.files, "🎫 Open ticket")}
       </div>` });
     }
     for (const h of hotels.filter((h) => h.checkIn === date)) timeline.push({ time: h.checkInTime || "14:00", html: hotelCard(h, rates) });
