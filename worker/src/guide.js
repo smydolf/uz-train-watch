@@ -49,8 +49,8 @@ export function renderGuide(nav, trip = { hotels: [], slips: [] }, rates = null)
 --accent:#818cf8;--accent-soft:#1e1b4b;--ok:#4ade80;--ok-bg:#12301f;--hit:#fbbf24;--hit-bg:#3a2a0a;--shadow:none}}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-main{max-width:860px;margin:0 auto;padding:28px 16px 64px}
-h1{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:0}.sub{color:var(--muted);margin:6px 0 0}
+main{max-width:860px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:32px;font-weight:800;letter-spacing:-.03em;margin:0;line-height:1.1}.sub{color:var(--muted);margin:6px 0 0}
 .chips{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:12px 0;margin:14px 0 4px;background:var(--bg)}
 .chips::-webkit-scrollbar{display:none}
 .chips a{flex:none;font-size:13px;font-weight:600;text-decoration:none;color:var(--accent);background:var(--accent-soft);padding:6px 12px;border-radius:999px}
@@ -76,6 +76,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute
 .note{font-size:13px;color:var(--muted)}
 .rate{font-size:16px;padding:10px 12px;border-radius:12px;background:var(--accent-soft)}
 footer{margin-top:28px;font-size:13px;color:var(--muted)}footer a{color:var(--muted)}
+@media (max-width:760px){h1{font-size:26px}}
 @media print{.tn-bar,.chips,#map-section,.reset{display:none}section,.card{box-shadow:none;break-inside:avoid}}
 </style></head><body>${nav}<main>
 <h1>Uzbekistan guide 📖</h1>
