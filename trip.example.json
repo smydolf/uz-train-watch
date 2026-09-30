@@ -19,7 +19,8 @@
   "watch": [{ "date": "2030-05-03", "from": "Samarkand", "to": "Bukhara", "after": "06:00", "fastOnly": true, "priority": true,
     "why": "Daytime fast train" }],
   "plan": {
-    "2030-05-02": [{ "time": "08:00", "tag": "sight", "title": "Registan at opening", "cost": "100k UZS", "note": "Before the tour groups." }]
+    "2030-05-02": [{ "time": "08:00", "tag": "sight", "title": "Registan at opening", "cost": "100k UZS", "note": "Before the tour groups.",
+      "map": "Registan, Samarkand", "links": [{ "label": "Tickets", "url": "https://example.com/tickets" }] }]
   },
   "slips": ["Samarkand hotel, 1–3 May"]
 }

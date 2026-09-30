@@ -50,10 +50,15 @@ function hotelCard(h, rates) {
     <div class="pills">${meta}</div>${h.notes ? `<div class="note">${esc(h.notes)}</div>` : ""}${fileLinks(h.files)}</div>`;
 }
 const TAG_ICON = { sight: "🏛️", food: "🍽️", move: "🚆", tip: "💡" };
+// A slot's "map" is a Google Maps search (place name and address, or "lat,lng") or a full Maps URL (a route).
+const mapUrl = (m) => /^https?:\/\//.test(m) ? m : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m)}`;
 function slotHtml(x, cls = "") {
   const chips = [x.cost && `<span class="chip-cost">${esc(x.cost)}</span>`, x.book && '<span class="chip-book">Book ahead</span>'].filter(Boolean).join("");
+  const links = [x.map && [/^https?:\/\//.test(x.map) && x.map.includes("/dir/") ? "🗺️ Route in Google Maps" : "📍 Google Maps", mapUrl(x.map)],
+    ...(x.links ?? []).map((l) => [l.label, l.url])].filter(Boolean)
+    .map(([label, url]) => `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)} ↗</a>`).join("");
   return `<div class="slot ${cls}"><div class="st">${esc(x.time || "")}</div><div class="sdot">${TAG_ICON[x.tag] ?? "•"}</div>
-    <div class="sb"><b>${esc(x.title)}</b>${chips ? `<div class="schips">${chips}</div>` : ""}${x.note ? `<p>${esc(x.note)}</p>` : ""}</div></div>`;
+    <div class="sb"><b>${esc(x.title)}</b>${chips ? `<div class="schips">${chips}</div>` : ""}${x.note ? `<p>${esc(x.note)}</p>` : ""}${links ? `<div class="slinks">${links}</div>` : ""}</div></div>`;
 }
 // Empty times keep their place after the previous slot.
 function withSortKeys(items) {
@@ -348,6 +353,7 @@ footer{color:var(--muted);font-size:13px;margin-top:24px}
 .slot .st{font-weight:700;font-variant-numeric:tabular-nums;padding-top:1px}.slot .sdot{font-size:16px;line-height:1.3}
 .slot .sb b{font-weight:600}.slot .sb p{margin:3px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
 .schips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.slinks{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:5px}.slinks a{font-size:13px;font-weight:600;color:var(--accent);text-decoration:none}
 .chip-cost{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--text)}
 .chip-book{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--hit-bg);color:var(--hit)}
 .slot.next{border:2px solid var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent)}.slot.past{opacity:.5}
