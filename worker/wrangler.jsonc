@@ -6,7 +6,7 @@
   "triggers": { "crons": ["*/5 * * * *"] },
   "kv_namespaces": [{ "binding": "STATE", "id": "2f0aa410825c46c6896edc3ed0d60df8" }],
   "observability": { "enabled": true },
-  // HTML files (the /app shell, the guide checklists and map) are imported as strings, the app icons as bytes.
+  // The /app shell (HTML) is imported as a string, the app icons as bytes.
   "rules": [
     { "type": "Text", "globs": ["**/*.html"], "fallthrough": true },
     { "type": "Data", "globs": ["**/*.png"], "fallthrough": true }

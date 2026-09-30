@@ -1,6 +1,3 @@
-import { renderTrip } from "./trip.js";
-import { nav } from "./nav.js";
-import { renderGuide } from "./guide.js";
 import { APP_HTML, ICONS, MANIFEST, appPayload } from "./app.js";
 
 // Watch eticket.uzrailpass.uz for free seats and alert on Telegram; serve the trip pages.
@@ -175,7 +172,7 @@ async function check(env, state, trip) {
     }
     for (const t of list) {
       const depTime = t.departureDate.slice(-5);
-      // Every train is stored for the /trip page; only preferred ones (type and time window match) alert.
+      // Every train is stored for the app; only preferred ones (type and time window match) alert.
       const preferred = (!leg.types || leg.types.includes(t.type)) && depTime >= leg.after && depTime < leg.before;
       const n = t.cars.reduce((sum, c) => sum + (c.freeSeats || 0), 0);
       const key = `${leg.date} ${t.number}`;
@@ -241,12 +238,12 @@ async function check(env, state, trip) {
     summary: `checked ${Object.keys(seats).length} trains (${pref.length} preferred), ${avail} preferred with ${PASSENGERS}+ seats, ${found.length} new, ${lowAlerts.length} low-seat warnings` };
 }
 
-// Offline copy of /app, its data, /trip, /guide and the ticket files: network first, the cached copy when
-// there is no signal (trains, desert). A slow network falls back to the cached copy after 4 seconds.
-// Google Fonts are cache first. The cache name stays "uz-trip-v1": /trip and /app also put files in it.
+// Offline copy of /app, its data and the ticket files: network first, the cached copy when there is no
+// signal (trains, desert). A slow network falls back to the cached copy after 4 seconds. Google Fonts are
+// cache first. /app also puts the ticket files in this cache.
 const SERVICE_WORKER = `
 const CACHE = "uz-trip-v1";
-const PAGES = ["/app", "/api/app", "/trip", "/guide", "/manifest.webmanifest", "/app-icon-180.png", "/app-icon-512.png"];
+const PAGES = ["/app", "/api/app", "/manifest.webmanifest", "/app-icon-180.png", "/app-icon-512.png"];
 const FONTS = ["https://fonts.googleapis.com", "https://fonts.gstatic.com"];
 // A redirect means the session expired (login page), and 401 means signed out: never cache those.
 // Every response body must be read or cancelled: an unread body keeps its request open and stalls later fetches.
@@ -310,25 +307,7 @@ async function signedIn(request, env) {
   const [exp, sig] = (cookie?.slice(8) ?? "").split(".");
   return !!exp && +exp > Date.now() && (await same(sig ?? "", await hmac(env, exp)));
 }
-function loginPage(error = "") {
-  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign in</title><style>
-:root{--bg:#f4f4f7;--card:#fff;--text:#15151a;--muted:#6e6e7a;--line:#e4e4ea;--accent:#4f46e5}
-@media (prefers-color-scheme:dark){:root{--bg:#0d0d11;--card:#17171d;--text:#f1f1f4;--muted:#8d8d99;--line:#2a2a33;--accent:#818cf8}}
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:16px/1.5 -apple-system,system-ui,sans-serif}
-form{width:min(340px,calc(100vw - 32px));background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px}
-h1{margin:0 0 16px;font-size:22px}label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
-input{width:100%;box-sizing:border-box;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
-button{margin-top:18px;width:100%;font:inherit;font-weight:600;padding:12px;border:0;border-radius:12px;background:var(--accent);color:#fff}
-.err{color:#dc2626;font-size:14px;margin-top:12px}
-</style></head><body><form method="post" action="/login"><h1>Uzbekistan trip 🇺🇿</h1>
-<label for="u">User</label><input id="u" name="user" autocomplete="username" autocapitalize="none" required>
-<label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
-<button>Sign in</button>${error ? `<div class="err">${error}</div>` : ""}</form></body></html>`,
-    { status: error ? 401 : 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
-}
-// One sign-in attempt, shared by the /login form and the /app sign-in. Returns the session cookie, or an
-// error with its HTTP status.
+// One sign-in attempt. Returns the session cookie, or an error with its HTTP status.
 async function tryLogin(env, user, password) {
   if (!env.APP_USER || !env.APP_PASSWORD) return { status: 503, error: "Sign-in is not configured yet." };
   const fails = (await env.STATE.get("login-fails", "json")) ?? { n: 0, since: 0 };
@@ -341,13 +320,6 @@ async function tryLogin(env, user, password) {
   }
   const exp = String(Date.now() + SESSION_DAYS * 86400000);
   return { cookie: `session=${exp}.${await hmac(env, exp)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Lax` };
-}
-async function handleLogin(request, env) {
-  if (request.method !== "POST") return loginPage();
-  const form = await request.formData();
-  const r = await tryLogin(env, String(form.get("user") ?? ""), String(form.get("password") ?? ""));
-  if (r.error) return loginPage(r.error);
-  return new Response(null, { status: 303, headers: { Location: "/trip", "Set-Cookie": r.cookie } });
 }
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status,
   headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers } });
@@ -385,24 +357,22 @@ export default {
     }
   },
 
-  // Pages: /app (mobile app, its data at /api/app), /trip (plan), /guide (reference), /files/<name> (tickets,
-  // bookings), /status (JSON). "/" opens /app. The /app shell, its manifest and icons hold no personal data
-  // and are public (the manifest is fetched without cookies); everything else except /login, /api/login and
-  // /sw.js needs a signed-in session.
+  // /app is the only page (its data at /api/app, sign-in at /api/login); /files/<name> serves tickets and
+  // bookings, /status the watcher's JSON. The /app shell, its manifest and icons hold no personal data and are
+  // public (the manifest is fetched without cookies); /files/, /status and /api/app need a signed-in session.
+  // Old pages ("/", /login, /trip, /guide) redirect to /app, which shows the sign-in when needed.
   async fetch(request, env) {
     const url = new URL(request.url), path = url.pathname;
     const html = (body) => new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
-    if (path === "/login") return handleLogin(request, env);
+    const toApp = () => Response.redirect(new URL("/app", request.url), 302);
+    if (["/", "/login", "/trip", "/guide"].includes(path)) return toApp();
     if (path === "/logout") return new Response(null, { status: 303, headers: { Location: "/app", "Set-Cookie": "session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax" } });
     if (path === "/sw.js") return new Response(SERVICE_WORKER, { headers: { "Content-Type": "text/javascript", "Cache-Control": "no-store" } });
     if (path === "/app") return html(APP_HTML);
     if (path === "/manifest.webmanifest") return new Response(MANIFEST, { headers: { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=86400" } });
     if (ICONS[path]) return new Response(ICONS[path], { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" } });
     if (path === "/api/login") return apiLogin(request, env);
-    if (!(await signedIn(request, env))) {
-      return path.startsWith("/api/") ? json({ error: "Sign in first." }, 401) : Response.redirect(new URL("/login", request.url), 302);
-    }
-    if (path === "/") return Response.redirect(new URL("/app", request.url), 302);
+    if (!(await signedIn(request, env))) return path.startsWith("/api/") ? json({ error: "Sign in first." }, 401) : toApp();
     if (path === "/api/app") {
       const [trip, state] = await Promise.all([loadTrip(env), loadState(env)]);
       return json(appPayload(trip, state));
@@ -415,15 +385,8 @@ export default {
       return new Response(value, { headers: { "Content-Type": metadata?.type ?? "application/octet-stream",
         "Content-Disposition": `inline; filename="${name.split("/").pop()}"`, "Cache-Control": "private, max-age=86400" } });
     }
-    const trip = await loadTrip(env);
-    if (path === "/guide") return html(renderGuide(nav("guide"), trip, (await loadState(env)).rates));
-    const { seats, trains, last, weather, rates } = await loadState(env);
-    if (path === "/trip") {
-      return html(renderTrip({ bookings: trip.bookings, hotels: trip.hotels, events: trip.events, legs: trip.legs, names: NAMES,
-        seats, trains, last, passengers: trip.passengers, tripStart: trip.start, tripEnd: trip.end, startCity: trip.startCity,
-        planned: trip.planned, plan: trip.plan, nav: nav("trip"), weather: weather?.days ?? {}, rates: rates?.rates ?? null }));
-    }
     if (path !== "/status") return new Response("Not found", { status: 404 });
+    const { last, seats } = await loadState(env);
     // Train numbers end in Cyrillic letters (772Ф), so declare UTF-8 or browsers show Ð¤.
     return new Response(JSON.stringify({ last, seats }, null, 2), {
       headers: { "Content-Type": "application/json; charset=utf-8" },

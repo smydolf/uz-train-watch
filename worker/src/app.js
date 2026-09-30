@@ -1,7 +1,6 @@
 // Server side of /app, the mobile trip companion (NOW · DAY · TRIP · TOOLS).
 // /app is a static shell with no personal data, so the service worker can cache it safely. The shell reads
 // everything from /api/app and computes "now" on the phone, in Tashkent time.
-import { REFERENCE } from "./plan.js";
 import APP_HTML from "./app.html";
 import ICON_180 from "./icons/app-icon-180.png";
 import ICON_512 from "./icons/app-icon-512.png";
@@ -27,8 +26,11 @@ export const MANIFEST = JSON.stringify({
   ],
 });
 
+// Uzbekistan emergency numbers for TOOLS (112 and the tourist hotline are shown large).
+const EMERGENCY = [["General emergency", "112"], ["Police", "102"], ["Ambulance", "103"], ["Fire", "101"], ["Tourist hotline", "1173"]];
+
 // Everything the page needs in one response: the trip from KV, live seats for watched trains, weather,
-// exchange rates and the emergency numbers from plan.js.
+// exchange rates and the emergency numbers.
 export function appPayload(trip, state) {
   const seats = state.seats ?? {}, trains = state.trains ?? {};
   const watch = trip.watch.map((w, i) => {
@@ -47,6 +49,6 @@ export function appPayload(trip, state) {
     last: state.last ?? null,
     weather: state.weather?.days ?? {},
     rates: state.rates?.rates ?? null,
-    emergency: REFERENCE.emergency,
+    emergency: EMERGENCY,
   };
 }

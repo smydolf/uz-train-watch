@@ -298,7 +298,7 @@ const isFlight = (b) => b.mode === "flight";
 const trainsOf = (t) => t.bookings.filter((b) => !isFlight(b));
 const tashHM = (ms) => tashIso(ms).slice(11, 16);
 const gmaps = (q) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
-const fileUrl = (f) => "/files/" + encodeURIComponent(f); // the same URLs as /trip, so both share the cached copy
+const fileUrl = (f) => "/files/" + encodeURIComponent(f);
 const fmt = (n) => Math.round(n).toLocaleString("en");
 const plain = (s) => String(s ?? "").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").trim();
 const slug = (s) => plain(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "item";
@@ -340,7 +340,7 @@ let store = loadStore();
 function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {} }
 function save() { store.savedAt = new Date().toISOString(); persist(); }
 
-// Registration slips share their ticks with the /guide checklist: localStorage "uz-checks", same ids.
+// Registration-slip ticks: localStorage "uz-checks", with the ids of the old /guide checklist, so earlier ticks survive.
 const SLIP_KEY = "uz-checks";
 const escGuide = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const slipId = (text, i) => `slip-${i}-${escGuide(text).slice(0, 20)}`;
@@ -544,7 +544,7 @@ function renderNow(clk) {
   if (clk.date > t.end) {
     return `<section class="card now"><div class="now-lbl"><i></i>TRIP OVER</div><div class="now-title">Welcome home</div>
 <div class="now-note">${rangeT(t.start, t.end)} · ${plural(trainsOf(t).length, "train")}. The whole trip is still in TRIP.</div>
-<div class="two"><a class="btn pri" href="#trip">Trip</a><a class="btn" href="/guide">Guide</a></div></section>`;
+<div class="two"><a class="btn pri" href="#trip">Trip</a></div></section>`;
   }
   const day = M.days[clk.date], nn = nowNext(day, clk), city = M.stay[clk.date], w = weatherOf(city, clk.date);
   return `<div class="hd"><span>DAY ${day.n} · ${wdm(clk.date)}${clk.off !== TZ_MIN ? ` · ${utcText(clk.off)}` : ""}</span><span>${esc(city.toUpperCase())}${w ? ` ${w.max}°` : ""}</span></div>`
@@ -737,7 +737,7 @@ function papers() {
   const list = ui.slipsOpen && slips.length ? `<section class="card">${slips.map((s, i) => {
     const id = esc(slipId(s, i)), on = ticks.has(slipId(s, i));
     return `<div class="krow"><button class="kdot${on ? " on" : ""}" data-act="slip" data-id="${id}" aria-label="Kept: ${esc(s)}"></button><button class="klabel${on ? " done" : ""}" data-act="slip" data-id="${id}">${esc(s)}</button></div>`;
-  }).join("")}<div class="saved">SAME TICKS AS THE GUIDE CHECKLIST</div></section>` : "";
+  }).join("")}</section>` : "";
   return `<section class="card papers"><button class="pt" data-act="slips" aria-expanded="${ui.slipsOpen}"><div class="lbl4">SLIPS</div><div class="t22">${kept} / ${slips.length}</div><div class="s12">keep every one ${ui.slipsOpen ? "▴" : "▾"}</div></button>
 <div class="pt"><div class="lbl4">FILES</div><div class="t22" id="files-state">…</div><div class="s12">tickets &amp; bookings</div></div></section>${list}`;
 }
@@ -792,7 +792,7 @@ ${sosTiles()}${driverCard(clk)}
 <div class="seg3">${[["auto", "AUTO"], ["top", "TOP"], ["bottom", "BOTTOM"]].map(([m, l]) => `<button class="${store.navMode === m ? "on" : ""}" data-act="nav" data-mode="${m}" aria-pressed="${store.navMode === m}">${l}</button>`).join("")}</div>
 <div class="s13">Auto: bottom tabs when you open the app from the Home Screen, top tabs in Safari.</div></section>
 <div class="foot">${data.last?.at ? `Seats and weather checked ${tashHM(Date.parse(data.last.at))}` : "No seat check yet"} · Tashkent time (UTC+5)<br>
-<a href="/guide">Guide</a> · <a href="/trip">Full plan</a> · <button data-act="logout">Sign out</button></div>`;
+<button data-act="logout">Sign out</button></div>`;
 }
 
 function sosTiles() {
