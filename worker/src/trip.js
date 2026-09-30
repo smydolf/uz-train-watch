@@ -31,6 +31,7 @@ function hotelCard(h) {
     h.checkOut && `<span class="pill">Check-out ${esc(h.checkOut.slice(8))}.${esc(h.checkOut.slice(5, 7))}${h.checkOutTime ? ` ${esc(h.checkOutTime)}` : ""}</span>`,
     h.paid != null && `<span class="pill">${h.paid ? "✅ Paid" : "💳 Pay at the hotel"}</span>`,
     h.price && `<span class="pill">${esc(h.price)}</span>`,
+    h.phone && `<a class="pill" href="tel:${esc(h.phone.replace(/\s/g, ""))}">📞 ${esc(h.phone)}</a>`,
   ].filter(Boolean).join("");
   const maps = h.address ? `<a class="maplink" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.name + ", " + h.address)}" target="_blank" rel="noopener">📍 ${esc(h.address)}</a>` : "";
   return `<div class="card hotel-card"><div class="card-head"><span class="badge ok">🏨 Hotel</span></div>
