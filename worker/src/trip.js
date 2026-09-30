@@ -4,7 +4,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const iso = (d) => d.toISOString().slice(0, 10);
 const addDays = (d, n) => new Date(d.getTime() + n * 86400000);
 const fmt = (n) => Math.round(n).toLocaleString("en");
-// "≈ 391 PLN · ≈ 1,200,000 UZS", from an amount in any currency. rates are units per 1 PLN.
+// "≈ 391 PLN · ≈ 1,200,000 UZS", from an amount in any currency (the original currency is not shown). rates are units per 1 PLN.
 function money(amount, currency, rates) {
   if (amount == null) return "";
   if (!rates?.[currency]) return `${fmt(amount)} ${currency}`;
@@ -12,7 +12,6 @@ function money(amount, currency, rates) {
   const parts = [];
   if (currency !== "PLN") parts.push(`≈ ${fmt(pln)} PLN`); else parts.push(`${fmt(amount)} PLN`);
   if (currency === "UZS") parts.unshift(`${fmt(amount)} UZS`); else parts.push(`≈ ${fmt(Math.round(uzsAmount / 1000) * 1000)} UZS`);
-  if (currency !== "UZS" && currency !== "PLN") parts.push(`(${fmt(amount)} ${currency})`);
   return parts.join(" · ");
 }
 const toMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
