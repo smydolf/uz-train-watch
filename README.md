@@ -25,9 +25,32 @@ No personal data is in this repo. It lives in the Worker's KV namespace:
 scripts/upload.sh
 ```
 
+To get the live data on a new machine (it overwrites the local `trip.json` and `files/`):
+
+```bash
+scripts/pull.sh
+```
+
 To replace a single day of the plan without a local `trip.json`, run the **Update day plan** workflow
 (Actions tab) with the day as JSON: `{"date": "YYYY-MM-DD", "slots": [...]}`. It merges the day into the
 stored trip and keeps the previous version under the KV key `trip:backup:<run id>`.
+
+## Working from Claude in the cloud
+
+A cloud session has the code from GitHub but not the private data. Give its environment:
+
+```
+CLOUDFLARE_API_TOKEN=<token with only "Account → Workers KV Storage → Edit">
+CLOUDFLARE_ACCOUNT_ID=<account id>
+```
+
+and network access to `api.cloudflare.com`. Then: `scripts/pull.sh` → edit `trip.json` or add files →
+`scripts/upload.sh`. Code changes go through a push to `main`; this token cannot deploy the Worker.
+
+## Deploys
+
+Every push to `main` deploys the Worker through GitHub Actions (`.github/workflows/deploy.yml`, secrets
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`). Pull requests get a dry run.
 
 ## Secrets and variables (Cloudflare, not in git)
 
@@ -35,8 +58,3 @@ stored trip and keeps the previous version under the KV key `trip:backup:<run id
 - `APP_USER`, `APP_PASSWORD`: the one account for signing in. Without them nobody can sign in.
   Changing the password signs every device out.
 
-## Deploy
-
-```bash
-cd worker && npx wrangler deploy
-```
