@@ -25,6 +25,10 @@ No personal data is in this repo. It lives in the Worker's KV namespace:
 scripts/upload.sh
 ```
 
+To replace a single day of the plan without a local `trip.json`, run the **Update day plan** workflow
+(Actions tab) with the day as JSON: `{"date": "YYYY-MM-DD", "slots": [...]}`. It merges the day into the
+stored trip and keeps the previous version under the KV key `trip:backup:<run id>`.
+
 ## Secrets and variables (Cloudflare, not in git)
 
 - `TELEGRAM_TOKEN`: bot token. Every private chat that messages the bot gets alerts (max 5).
