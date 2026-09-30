@@ -377,7 +377,7 @@ details.watch-card .route{font-size:14px}
 }
 </style></head><body>${nav}<main>
 <header>
-  <div><h1>Uzbekistan trip 🇵🇱</h1><div class="sub">${dayLabel(start, { day: "numeric", month: "short" })} – ${dayLabel(end, { day: "numeric", month: "short", year: "numeric" })} · 2 travellers</div></div>
+  <div><h1>Uzbekistan trip 🇺🇿</h1><div class="sub">${dayLabel(start, { day: "numeric", month: "short" })} – ${dayLabel(end, { day: "numeric", month: "short", year: "numeric" })} · 2 travellers</div></div>
   ${statusPill}
 </header>
 ${todayCard}
