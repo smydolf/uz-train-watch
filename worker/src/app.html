@@ -221,6 +221,8 @@ input:focus-visible{outline:0}
 .soss b{font-size:18px;font-weight:600}
 .soss span{font-size:12px;color:var(--muted)}
 .driver .lbl span:last-child{color:var(--muted)}
+.nw{white-space:nowrap}
+.ipol{font:600 24px var(--mono);letter-spacing:.02em;-webkit-user-select:all;user-select:all;overflow-wrap:anywhere}
 .dsub{font-size:14px;color:var(--muted)}
 .dru{font:600 22px/1.3 var(--sys)}
 .dra{font:400 17px/1.4 var(--sys);color:#e4e3df}
@@ -801,12 +803,21 @@ function renderTools(clk) {
 <section class="card"><div class="row lbl"><span>TODAY'S KIT · ${done}/${items.length}</span><button class="teal" data-act="kit-edit">${ui.kitEdit ? "DONE" : "EDIT"}</button></div>${kit}
 <div class="kadd"><input id="kit-draft" data-input="kit-draft" value="${esc(ui.kitDraft)}" placeholder="Add item…" enterkeyhint="done" autocomplete="off" aria-label="New item"><button class="addb" data-act="kit-add">ADD</button></div>
 <div class="saved" id="kit-saved">${savedNote()}</div></section>
-${sosTiles()}${driverCard(clk)}
+${sosTiles()}${insuranceCards()}${driverCard(clk)}
 <section class="card"><div class="row lbl"><span>NAVIGATION</span><span>${navBottom() ? "BOTTOM TABS" : "TOP TABS"}</span></div>
 <div class="seg3">${[["auto", "AUTO"], ["top", "TOP"], ["bottom", "BOTTOM"]].map(([m, l]) => `<button class="${store.navMode === m ? "on" : ""}" data-act="nav" data-mode="${m}" aria-pressed="${store.navMode === m}">${l}</button>`).join("")}</div>
 <div class="s13">Auto: bottom tabs when you open the app from the Home Screen, top tabs in Safari.</div></section>
 <div class="foot">${data.last?.at ? `Seats and weather checked ${tashHM(Date.parse(data.last.at))}` : "No seat check yet"} · Tashkent time (UTC+5)<br>
 <button data-act="logout">Sign out</button></div>`;
+}
+
+// Travel insurance from trip.json "insurance": [{ name, holder, policy, phone, phoneLabel, note }], next to the
+// emergency numbers, so the policy number and the assistance line are on every phone, offline.
+function insuranceCards() {
+  const list = (Array.isArray(M.t.insurance) ? M.t.insurance : []).filter((x) => x?.policy || x?.phone);
+  return list.map((x) => `<section class="card"><div class="row lbl"><span>INSURANCE${x.name ? ` · ${esc(x.name.toUpperCase())}` : ""}</span>${x.holder ? `<span>${esc(x.holder.toUpperCase())}</span>` : ""}</div>
+${x.policy ? `<div class="ipol">${esc(x.policy)}</div><div class="s12">Policy number</div>` : ""}${x.note ? `<div class="s13">${esc(x.note)}</div>` : ""}
+${x.phone ? `<a class="btn2" href="tel:${esc(x.phone.replace(/[^\d+]/g, ""))}">${esc(x.phoneLabel || "Call")} · <span class="nw">${esc(x.phone)}</span></a>` : ""}</section>`).join("");
 }
 
 function sosTiles() {

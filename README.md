@@ -9,7 +9,7 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
   - **DAY** shows one day as a route line, with Maps links and Skip.
   - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
   - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
-    in Russian for the taxi driver.
+    in Russian for the taxi driver, and the travel insurance.
 The app is behind a password sign-in (one account) and works offline after one visit.
 
 ## The app (/app)
@@ -32,6 +32,8 @@ The app is behind a password sign-in (one account) and works offline after one v
   - `kit` at the top level: the TOOLS kit checklist (here, the packing list), a list of strings. It replaces the
     default kit. When it changes, it replaces the kit on each phone: ticks carry over by label, and items added on
     the phone stay;
+  - `insurance` at the top level: travel insurance cards in TOOLS, for example
+    `[{ "name": "AXA", "holder": "…", "policy": "…", "phone": "+48 …", "phoneLabel": "24/7 alarm centre", "note": "…" }]`;
   - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
     clock until the day ends there. Every other day is in Tashkent time.
