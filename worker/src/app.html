@@ -209,12 +209,6 @@ input:focus-visible{outline:0}
 .kadd input::placeholder{color:var(--off)}
 .addb{font:600 12px var(--mono);background:var(--teal);color:var(--bg);padding:8px 12px;border-radius:8px}
 .saved{font:500 11px var(--mono);color:var(--off)}
-.pwx{display:flex;flex-wrap:wrap;gap:2px 12px;font:500 12px var(--mono);color:var(--text2)}
-.pwx b{font-weight:600}
-.pgh{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font:600 11px var(--mono);letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
-.pedit{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.kgrp{flex:none;max-width:40%;-webkit-appearance:none;appearance:none;border:0;outline:0;border-radius:8px;padding:6px 26px 6px 10px;color:var(--text2);font:500 16px var(--sans);text-overflow:ellipsis;
-  background:var(--raised) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239a9aa2' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 10px center}
 .sos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .sost{display:block;background:var(--card);border-radius:20px;padding:16px}
 .sost .sn{font-size:30px;font-weight:600}
@@ -264,7 +258,7 @@ input:focus-visible{outline:0}
 <script>
 "use strict";
 // /app: the trip companion. All trip data comes from /api/app (KV "trip" and "state"). What the user changes
-// on this phone (kit list, packing list, skipped stops, navigation mode) stays in localStorage under STORE_KEY.
+// on this phone (kit list, skipped stops, navigation mode) stays in localStorage under STORE_KEY.
 
 const STORE_KEY = "tripagent.uz.v1";
 const CACHE = "uz-trip-v1"; // the service worker (/sw.js) uses the same cache
@@ -315,7 +309,7 @@ const isWeb = (u) => /^https?:/.test(u) || u.startsWith("/");
 const link = (l, cls) => `<a class="${cls}" href="${esc(l.url)}"${isWeb(l.url) ? ' target="_blank" rel="noopener"' : ""}>${esc(l.label)}${isWeb(l.url) ? " ↗" : ""}</a>`;
 const costLine = (x) => (x.cost || x.book ? `<div class="cost">${x.cost ? `<span>${esc(x.cost)}</span>` : ""}${x.book ? '<span class="bk">BOOK AHEAD</span>' : ""}</div>` : "");
 const seatText = (b) => [b.car && `Car ${b.car}`, b.seat].filter(Boolean).join(" · ");
-const typing = () => !!document.activeElement?.matches?.("input, textarea, select");
+const typing = () => !!document.activeElement?.matches?.("input, textarea");
 
 // Tashkent time now, or the time in ?at=2026-10-02T12:40 (read as that day's local time) for testing.
 // A day in ZONES runs on its own clock while it is that date there, or already that date in Tashkent.
@@ -335,7 +329,7 @@ function loadStore() {
   return {
     v: 1,
     kitItems: Array.isArray(s?.kitItems) ? s.kitItems : DEFAULT_KIT.map((label, i) => ({ id: "k" + i, label, done: false })),
-    packItems: Array.isArray(s?.packItems) ? s.packItems : null, // [{ id, group, label, done }]; null until seeded
+    kitFrom: s?.kitFrom ?? null, // the trip.json "kit" last copied to this phone
     skipped: s?.skipped && typeof s.skipped === "object" ? s.skipped : {}, // { "<item id>": true }
     navMode: ["auto", "top", "bottom"].includes(s?.navMode) ? s.navMode : "auto",
     savedAt: s?.savedAt ?? null,
@@ -347,12 +341,18 @@ let store = loadStore();
 function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {} }
 function save() { store.savedAt = new Date().toISOString(); persist(); }
 
-// The packing list starts as a copy of trip.json "packing": [{ "group": "Clothes", "items": ["…"] }]. After that
-// it lives on this phone, like the kit; "Reset" in EDIT copies the trip list again.
-const packSeed = (groups) => (Array.isArray(groups) ? groups : []).flatMap((g, gi) => (Array.isArray(g?.items) ? g.items : [])
-  .filter((x) => typeof x === "string" && x.trim())
-  .map((label, i) => ({ id: `p${gi}-${i}`, group: String(g.group || "Packing"), label, done: false })));
-const packGroups = (items) => [...new Set(items.map((p) => p.group))];
+// trip.json "kit" (a list of strings) replaces the default kit. When it changes, it replaces the kit on this phone:
+// ticks carry over by label, and items added on this phone stay.
+function applyTripKit(kit) {
+  if (!Array.isArray(kit)) return;
+  const labels = kit.filter((x) => typeof x === "string" && x.trim()), from = JSON.stringify(labels);
+  if (store.kitFrom === from) return;
+  const done = new Set(store.kitItems.filter((k) => k.done).map((k) => k.label));
+  const added = store.kitItems.filter((k) => !String(k.id).startsWith("t") && !DEFAULT_KIT.includes(k.label) && !labels.includes(k.label));
+  store.kitItems = [...labels.map((label, i) => ({ id: "t" + i, label, done: done.has(label) })), ...added];
+  store.kitFrom = from;
+  persist();
+}
 
 // Registration-slip ticks: localStorage "uz-checks", with the ids of the old /guide checklist, so earlier ticks survive.
 const SLIP_KEY = "uz-checks";
@@ -367,7 +367,6 @@ function toggleSlip(id) {
 
 let data = null, M = null, lastText = "";
 const ui = { tab: "now", day: null, openDay: null, notes: new Set(), kitEdit: false, kitDraft: "", uzs: 425000, slipsOpen: false,
-  packOpen: null, packEdit: false, packDraft: "", packGroup: "",
   login: { user: "", pass: "", show: false, err: "", busy: false } };
 
 // ---- Trip model ----
@@ -787,19 +786,14 @@ async function precacheFiles() {
 const plnText = (uzs, rate) => { const v = uzs / rate; return v < 100 ? v.toFixed(2) : fmt(v); };
 const savedNote = () => `SAVED ON THIS PHONE${store.savedAt ? ` · ${tashHM(Date.parse(store.savedAt))}` : ""}`;
 
-// One row of a TOOLS checklist ("kit" or "pack"): tick it, or rename and delete it while editing.
-const checkRow = (k, list, editing) => `<div class="krow"><button class="kdot${k.done ? " on" : ""}" data-act="${list}-tick" data-id="${esc(k.id)}" aria-label="${k.done ? "Untick" : "Tick"}: ${esc(k.label)}"></button>${editing
-  ? `<input class="kin" data-input="${list}-rename" data-id="${esc(k.id)}" value="${esc(k.label)}" enterkeyhint="done" aria-label="Item name"><button class="kdel" data-act="${list}-del" data-id="${esc(k.id)}" aria-label="Delete: ${esc(k.label)}">×</button>`
-  : `<button class="klabel${k.done ? " done" : ""}" data-act="${list}-tick" data-id="${esc(k.id)}">${esc(k.label)}</button>`}</div>`;
-
 function renderTools(clk) {
   const rate = data.rates?.UZS || FALLBACK_RATE;
   const presets = [["15k", 15000], ["100k", 100000], ["425k", 425000], ["1M", 1000000]];
   const items = store.kitItems, done = items.filter((k) => k.done).length;
-  const kit = items.map((k) => checkRow(k, "kit", ui.kitEdit)).join("");
-  // Until the first day ends the packing list is open and comes first; after that it is folded, under the kit.
-  const early = clk.date <= M.t.start, pack = packCard(clk, early);
-  return `<div class="h28 px6">Tools</div>${early ? pack : ""}
+  const kit = items.map((k) => `<div class="krow"><button class="kdot${k.done ? " on" : ""}" data-act="kit-tick" data-id="${esc(k.id)}" aria-label="${k.done ? "Untick" : "Tick"}: ${esc(k.label)}"></button>${ui.kitEdit
+    ? `<input class="kin" data-input="kit-rename" data-id="${esc(k.id)}" value="${esc(k.label)}" enterkeyhint="done" aria-label="Item name"><button class="kdel" data-act="kit-del" data-id="${esc(k.id)}" aria-label="Delete: ${esc(k.label)}">×</button>`
+    : `<button class="klabel${k.done ? " done" : ""}" data-act="kit-tick" data-id="${esc(k.id)}">${esc(k.label)}</button>`}</div>`).join("");
+  return `<div class="h28 px6">Tools</div>
 <section class="card conv"><div class="row lbl"><span>CONVERT</span><span>1 PLN ≈ ${fmt(rate)} UZS</span></div>
 <label class="uzs"><input id="uzs" data-input="uzs" inputmode="numeric" autocomplete="off" value="${ui.uzs ? fmt(ui.uzs) : ""}" aria-label="Amount in UZS"><span class="cur">UZS</span></label>
 <div class="pln"><span id="pln">${plnText(ui.uzs, rate)}</span><span class="cur">PLN</span></div>
@@ -807,49 +801,12 @@ function renderTools(clk) {
 <section class="card"><div class="row lbl"><span>TODAY'S KIT · ${done}/${items.length}</span><button class="teal" data-act="kit-edit">${ui.kitEdit ? "DONE" : "EDIT"}</button></div>${kit}
 <div class="kadd"><input id="kit-draft" data-input="kit-draft" value="${esc(ui.kitDraft)}" placeholder="Add item…" enterkeyhint="done" autocomplete="off" aria-label="New item"><button class="addb" data-act="kit-add">ADD</button></div>
 <div class="saved" id="kit-saved">${savedNote()}</div></section>
-${early ? "" : pack}${sosTiles()}${driverCard(clk)}
+${sosTiles()}${driverCard(clk)}
 <section class="card"><div class="row lbl"><span>NAVIGATION</span><span>${navBottom() ? "BOTTOM TABS" : "TOP TABS"}</span></div>
 <div class="seg3">${[["auto", "AUTO"], ["top", "TOP"], ["bottom", "BOTTOM"]].map(([m, l]) => `<button class="${store.navMode === m ? "on" : ""}" data-act="nav" data-mode="${m}" aria-pressed="${store.navMode === m}">${l}</button>`).join("")}</div>
 <div class="s13">Auto: bottom tabs when you open the app from the Home Screen, top tabs in Safari.</div></section>
 <div class="foot">${data.last?.at ? `Seats and weather checked ${tashHM(Date.parse(data.last.at))}` : "No seat check yet"} · Tashkent time (UTC+5)<br>
 <button data-act="logout">Sign out</button></div>`;
-}
-
-// The packing list in groups, with the forecast for the rest of the trip above it.
-function packCard(clk, early) {
-  const items = store.packItems || [], groups = packGroups(items), done = items.filter((p) => p.done).length;
-  const open = ui.packOpen ?? early;
-  const head = `<div class="row lbl"><button data-act="pack-open" aria-expanded="${open}">PACKING · ${done}/${items.length} ${open ? "▴" : "▾"}</button>${open
-    ? `<button class="teal" data-act="pack-edit">${ui.packEdit ? "DONE" : "EDIT"}</button>` : ""}</div>`;
-  if (!open) return `<section class="card">${head}</section>`;
-  const list = groups.map((g) => {
-    const its = items.filter((p) => p.group === g), n = its.filter((p) => p.done).length;
-    return `<div class="pgh"><span>${esc(g)}</span><span${n === its.length ? ' class="teal"' : ""}>${n}/${its.length}</span></div>${its.map((p) => checkRow(p, "pack", ui.packEdit)).join("")}`;
-  }).join("");
-  const into = groups.includes(ui.packGroup) ? ui.packGroup : groups[0];
-  const pick = groups.length > 1 ? `<select class="kgrp" data-input="pack-group" aria-label="Group">${groups.map((g) => `<option${g === into ? " selected" : ""}>${esc(g)}</option>`).join("")}</select>` : "";
-  const edit = ui.packEdit ? `<div class="pedit"><button class="sbtn" data-act="pack-untick">Untick all</button>${data.trip.packing?.length
-    ? '<button class="sbtn" data-act="pack-reset">Reset to the trip list</button>' : ""}</div>` : "";
-  return `<section class="card">${head}${packWeather(clk)}${list || '<div class="s13">No items yet.</div>'}${edit}
-<div class="kadd"><input id="pack-draft" data-input="pack-draft" value="${esc(ui.packDraft)}" placeholder="Add item…" enterkeyhint="done" autocomplete="off" aria-label="New item">${pick}<button class="addb" data-act="pack-add">ADD</button></div>
-<div class="saved" id="pack-saved">${savedNote()}</div></section>`;
-}
-
-// Low and high per city, and the days rain is likely, over the days left in Uzbekistan (not the days in "zones").
-function packWeather(clk) {
-  const city = {}, wet = [];
-  for (const d of M.dates) {
-    const w = d < clk.date || d in ZONES ? null : weatherOf(M.stay[d], d);
-    if (!w) continue;
-    const c = (city[M.stay[d]] ??= { min: w.min, max: w.max });
-    c.min = Math.min(c.min, w.min); c.max = Math.max(c.max, w.max);
-    if (w.rain >= 50) wet.push(d);
-  }
-  const all = Object.values(city);
-  if (!all.length) return "";
-  const lo = Math.min(...all.map((c) => c.min)), hi = Math.max(...all.map((c) => c.max));
-  return `<div class="s13">Forecast ${lo}–${hi}°C${wet.length ? ` · rain likely ${wet.map((d) => `${wdT(d)} ${dmT(d)}`).join(", ")}` : ""}</div>
-<div class="pwx">${Object.entries(city).map(([c, w]) => `<span><b style="color:${color(c)}">${esc(c.toUpperCase())}</b> ${w.min}–${w.max}°</span>`).join("")}</div>`;
 }
 
 function sosTiles() {
@@ -943,7 +900,7 @@ async function loadData(show) {
   const text = await res.text();
   if (data && text === lastText) return;
   lastText = text; data = JSON.parse(text); M = build(data);
-  if (store.packItems == null && Array.isArray(data.trip.packing)) { store.packItems = packSeed(data.trip.packing); persist(); }
+  applyTripKit(data.trip.kit);
   if (data.trip.start) { store.hero = { start: data.trip.start, end: data.trip.end, segments: M.segments }; persist(); }
   if (show || !typing()) render(); else dirty = true;
   precacheFiles();
@@ -984,21 +941,6 @@ document.addEventListener("click", (e) => {
     case "kit-tick": store.kitItems = store.kitItems.map((k) => (k.id === id ? { ...k, done: !k.done } : k)); save(); render(); break;
     case "kit-del": store.kitItems = store.kitItems.filter((k) => k.id !== id); save(); render(); break;
     case "kit-add": addKit(); break;
-    case "pack-open": ui.packOpen = el.getAttribute("aria-expanded") !== "true"; if (!ui.packOpen) ui.packEdit = false; render(); break;
-    case "pack-edit":
-      if (ui.packEdit) { store.packItems = (store.packItems || []).filter((p) => p.label.trim()); save(); }
-      ui.packEdit = !ui.packEdit; render(); break;
-    case "pack-tick": store.packItems = store.packItems.map((p) => (p.id === id ? { ...p, done: !p.done } : p)); save(); render(); break;
-    case "pack-del": store.packItems = store.packItems.filter((p) => p.id !== id); save(); render(); break;
-    case "pack-add": addPack(); break;
-    case "pack-untick":
-      if (confirm("Untick every item on the packing list?")) { store.packItems = (store.packItems || []).map((p) => ({ ...p, done: false })); save(); render(); }
-      break;
-    case "pack-reset":
-      if (confirm("Replace the packing list with the trip list? Your ticks and changes on this phone are lost.")) {
-        store.packItems = packSeed(data.trip.packing); ui.packEdit = false; save(); render();
-      }
-      break;
     case "uzs": ui.uzs = +el.dataset.v; render(); break;
     case "nav": store.navMode = el.dataset.mode; save(); render(); break;
     case "lg-show": {
@@ -1019,18 +961,6 @@ function addKit() {
   document.getElementById("kit-draft")?.focus();
 }
 
-// A new item goes to the end of the group picked next to the input.
-function addPack() {
-  const label = ui.packDraft.trim();
-  if (!label) return;
-  const items = store.packItems || [], groups = packGroups(items);
-  const group = groups.includes(ui.packGroup) ? ui.packGroup : groups[0] || "Packing";
-  const last = items.findLastIndex((p) => p.group === group), at = last < 0 ? items.length : last + 1;
-  store.packItems = [...items.slice(0, at), { id: "p" + Date.now().toString(36), group, label, done: false }, ...items.slice(at)];
-  ui.packDraft = ""; save(); render();
-  document.getElementById("pack-draft")?.focus();
-}
-
 document.addEventListener("input", (e) => {
   const el = e.target;
   switch (el.dataset.input) {
@@ -1047,13 +977,6 @@ document.addEventListener("input", (e) => {
       break;
     }
     case "kit-draft": ui.kitDraft = el.value; break;
-    case "pack-rename": {
-      const p = store.packItems.find((p) => p.id === el.dataset.id);
-      if (p) { p.label = el.value; save(); document.getElementById("pack-saved").textContent = savedNote(); }
-      break;
-    }
-    case "pack-draft": ui.packDraft = el.value; break;
-    case "pack-group": ui.packGroup = el.value; break;
     case "lg":
       if (ui.login.err) {
         ui.login.err = "";
@@ -1066,8 +989,7 @@ document.addEventListener("input", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   if (e.target.id === "kit-draft") { e.preventDefault(); addKit(); }
-  else if (e.target.id === "pack-draft") { e.preventDefault(); addPack(); }
-  else if (/^(kit|pack)-rename$/.test(e.target.dataset?.input || "")) { e.preventDefault(); e.target.blur(); }
+  else if (e.target.dataset?.input === "kit-rename") { e.preventDefault(); e.target.blur(); }
 });
 document.addEventListener("submit", (e) => { if (e.target.id === "login") { e.preventDefault(); submitLogin(); } });
 document.addEventListener("focusout", () => setTimeout(tick, 0));

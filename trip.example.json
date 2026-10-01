@@ -28,8 +28,5 @@
     ]
   },
   "slips": ["Samarkand hotel, 1–3 May"],
-  "packing": [
-    { "group": "Documents & money", "items": ["Passports", "Bank cards, in two different bags", "Envelope for the registration slips"] },
-    { "group": "Clothes", "items": ["Long trousers: knees covered in mosques", "Headscarf for mosques", "Warm layer for cool mornings"] }
-  ]
+  "kit": ["Passports", "Bank cards, in two different bags", "Headscarf for mosques", "Warm layer for cool mornings"]
 }
