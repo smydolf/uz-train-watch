@@ -8,8 +8,8 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
   - **NOW** shows what to do now and next, tonight's train or hotel, and the stops left today.
   - **DAY** shows one day as a route line, with Maps links and Skip.
   - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
-  - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
-    in Russian for the taxi driver.
+  - **TOOLS** has the UZS → PLN converter, a kit checklist, the packing list (with the forecast for the rest of
+    the trip), emergency numbers and tonight's hotel in Russian for the taxi driver.
 The app is behind a password sign-in (one account) and works offline after one visit.
 
 ## The app (/app)
@@ -19,8 +19,9 @@ The app is behind a password sign-in (one account) and works offline after one v
 - Tabs have their own URLs: `#now`, `#day/2026-10-02`, `#trip`, `#tools`.
 - In a Safari tab the tabs sit at the top, clear of Safari's address bar. When you open the app from the
   Home Screen ("Add to Home Screen"), the tabs move to the bottom. TOOLS → Navigation overrides this.
-- Kit items, skipped stops and the navigation setting are kept on each phone, in `localStorage` key
-  `tripagent.uz.v1`. Registration-slip ticks are kept under `uz-checks`.
+- Kit items, the packing list, skipped stops and the navigation setting are kept on each phone, in `localStorage` key
+  `tripagent.uz.v1`. The packing list starts as a copy of `packing` in `trip.json`; TOOLS → Packing → Edit →
+  "Reset to the trip list" copies it again. Registration-slip ticks are kept under `uz-checks`.
 - Optional fields in `trip.json` that the app uses (see `trip.example.json`):
   - on plan items: `kind` (move, food, sight, train, hotel or note; else taken from `tag`), `map`, `leg`
     (transport to the next stop, for example `Taxi 4 km · 10 min`), `book`, `links` and `id` (a stable id
@@ -29,6 +30,8 @@ The app is behind a password sign-in (one account) and works offline after one v
   - on bookings: `refundUntil` (for example `2026-10-02T18:48`; else it is read from the note), `mode: "flight"`
     for a flight (it is not counted as a train), and `duration` (for example `06:00`) when the arrival is in
     another time zone;
+  - `packing` at the top level: the packing list in groups, for example
+    `[{ "group": "Documents & money", "items": ["Passports", "Bank cards"] }]`;
   - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
     clock until the day ends there. Every other day is in Tashkent time.
