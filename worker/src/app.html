@@ -126,7 +126,17 @@ input:focus-visible{outline:0}
 .schip{font:600 11px var(--mono);background:var(--card);color:var(--teal);padding:7px 9px;border-radius:7px}
 .sbtn{font:600 11px var(--mono);color:var(--muted);padding:6px 9px;border-radius:7px;border:1px solid var(--line)}
 .leg{display:inline-flex;margin:10px 0 12px;font:500 12px var(--mono);color:var(--text2);background:var(--card);padding:5px 10px;border-radius:8px}
-.stime{font:600 14px var(--mono);color:var(--muted);padding-top:2px;text-align:right}
+.stime{font:600 14px var(--mono);color:var(--muted);padding-top:2px;text-align:right;display:flex;flex-direction:column;align-items:flex-end}
+/* Drag a stop by its grip to a new place: it takes that time slot. */
+.grip{width:40px;height:40px;margin:4px -10px 0 0;display:flex;align-items:center;justify-content:center;color:var(--off);border-radius:10px;
+  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:grab}
+.grip svg{width:16px;height:16px;fill:currentColor}
+.stop.lift{position:relative;z-index:5;background:var(--raised);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.55)}
+.stop.lift .grip{color:var(--teal);cursor:grabbing}
+.stop.drop-before{box-shadow:0 -3px 0 var(--teal)}
+.stop.drop-after{box-shadow:0 3px 0 var(--teal)}
+.dragging,.dragging *{-webkit-user-select:none;user-select:none}
+.reset{font:600 11px var(--mono);letter-spacing:.04em;color:var(--teal);padding:4px 0}
 .stop.cur .node{border-color:var(--teal);background:var(--teal)}
 .stop.cur .line{background:var(--teal)}
 .stop.cur .stime{color:var(--teal)}
@@ -197,7 +207,7 @@ input:focus-visible{outline:0}
 .conv{gap:12px}
 .uzs{display:flex;align-items:baseline;gap:8px;border-bottom:1px solid var(--line);padding-bottom:8px}
 .uzs input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);font:600 34px var(--sans);letter-spacing:-.02em;padding:0}
-.cur{font:600 14px var(--mono);color:var(--muted)}
+.uzs .cur,.pln .cur{font:600 14px var(--mono);color:var(--muted)}
 .pln{display:flex;align-items:baseline;gap:8px}
 .pln span:first-child{flex:1;font-size:34px;font-weight:600;color:var(--teal);letter-spacing:-.02em}
 .presets{display:flex;gap:6px}
@@ -266,7 +276,7 @@ input:focus-visible{outline:0}
 <script>
 "use strict";
 // /app: the trip companion. All trip data comes from /api/app (KV "trip" and "state"). What the user changes
-// on this phone (kit list, skipped and done stops, navigation mode) stays in localStorage under STORE_KEY.
+// on this phone (kit list, skipped, done and reordered stops, navigation mode) stays in localStorage under STORE_KEY.
 
 const STORE_KEY = "tripagent.uz.v1";
 const CACHE = "uz-trip-v1"; // the service worker (/sw.js) uses the same cache
@@ -318,6 +328,7 @@ const link = (l, cls) => `<a class="${cls}" href="${esc(l.url)}"${isWeb(l.url) ?
 const costLine = (x) => (x.cost || x.book ? `<div class="cost">${x.cost ? `<span>${esc(x.cost)}</span>` : ""}${x.book ? '<span class="bk">BOOK AHEAD</span>' : ""}</div>` : "");
 const seatText = (b) => [b.car && `Car ${b.car}`, b.seat].filter(Boolean).join(" · ");
 const typing = () => !!document.activeElement?.matches?.("input, textarea");
+const busy = () => !!drag || typing(); // never re-render under the user's finger or keyboard
 
 // Tashkent time now, or the time in ?at=2026-10-02T12:40 (read as that day's local time) for testing.
 // A day in ZONES runs on its own clock while it is that date there, or already that date in Tashkent.
@@ -340,6 +351,7 @@ function loadStore() {
     kitFrom: s?.kitFrom ?? null, // the trip.json "kit" last copied to this phone
     skipped: s?.skipped && typeof s.skipped === "object" ? s.skipped : {}, // { "<item id>": true }
     done: s?.done && typeof s.done === "object" ? s.done : {}, // { "<item id>": true }: stops ticked off
+    order: s?.order && typeof s.order === "object" ? s.order : {}, // { "<date>": ["<item id>", …] }: stops dragged into a new order
     navMode: ["auto", "top", "bottom"].includes(s?.navMode) ? s.navMode : "auto",
     savedAt: s?.savedAt ?? null,
     hero: s?.hero ?? null, // trip dates and cities for the sign-in screen, from the last data load
@@ -375,6 +387,7 @@ function toggleSlip(id) {
 }
 
 let data = null, M = null, lastText = "";
+let drag = null; // a stop being dragged in DAY
 const ui = { tab: "now", day: null, openDay: null, notes: new Set(), kitEdit: false, kitDraft: "", uzs: 425000, slipsOpen: false,
   login: { user: "", pass: "", show: false, err: "", busy: false } };
 
@@ -430,7 +443,7 @@ function dayItems(t, date, cityAt) {
   out.sort((a, b) => a.key.localeCompare(b.key) || a.ord - b.ord);
   // Stable ids for skips: an explicit "id", else the title (not the position, which changes when the plan is edited).
   const seen = {};
-  return out.map((x) => {
+  const items = out.map((x) => {
     const base = `${date}#${x.id ?? (x.src === "train" ? "train-" + x.booking.train : slug(x.title))}`;
     seen[base] = (seen[base] || 0) + 1;
     const kind = x.kind || KIND[x.tag] || "sight";
@@ -439,6 +452,31 @@ function dayItems(t, date, cityAt) {
     const links = (x.links || []).map((l) => (l?.file ? { ...l, url: fileUrl(l.file) } : l)).filter((l) => l && l.url && l.label);
     return { ...x, id: seen[base] > 1 ? `${base}~${seen[base]}` : base, kind, city, maps: mapsLink(x, kind, city), links };
   });
+  return reorder(items, store.order[date]);
+}
+
+// Plan stops with a time can be dragged into a new order (store.order). The time slots stay where they are and
+// the stops move through them, so the day stays in time order and NOW and NEXT keep working. Trains, events and
+// stops without a time stay put. A stop keeps its "leg" only while the stop after it is still the same one.
+const movable = (x) => x.src === "plan" && !!x.time;
+function reorder(items, order) {
+  const slots = items.map((x, i) => (movable(x) ? i : -1)).filter((i) => i >= 0);
+  if (!Array.isArray(order) || slots.length < 2) return items;
+  const byId = new Map(slots.map((i) => [items[i].id, items[i]]));
+  const list = [...new Set(order)].filter((id) => byId.has(id)).map((id) => byId.get(id));
+  // Stops added to trip.json after the drag go back to their own place.
+  slots.forEach((i, k) => { if (!list.includes(items[i])) list.splice(Math.min(k, list.length), 0, items[i]); });
+  const after = new Map(items.map((x, i) => [x.id, items[i + 1]?.id]));
+  const out = [...items];
+  slots.forEach((i, k) => { out[i] = { ...list[k], time: items[i].time, key: items[i].key }; });
+  return out.map((x, i) => (x.leg && after.get(x.id) !== out[i + 1]?.id ? { ...x, leg: "" } : x));
+}
+function moveStop(date, id, to) {
+  const ids = M.days[date].items.filter(movable).map((x) => x.id), from = ids.indexOf(id);
+  if (from < 0 || to < 0 || to >= ids.length || to === from) return false;
+  ids.splice(from, 1); ids.splice(to, 0, id);
+  store.order[date] = ids; save(); M = build(data);
+  return true;
 }
 
 // Google Maps for a stop: its "map" (a search, "lat,lng" or a full Maps URL), else "title, city".
@@ -671,23 +709,26 @@ function renderDay(clk) {
   }, 0);
   const stops = day.items.filter((x) => x.time).length;
   const strip = M.dates.map((d) => `<a class="dc${d === date ? " on" : ""}${d === clk.date ? " today" : ""}" href="#day/${d}" style="--c:${color(M.stay[d])}" aria-label="${wdT(d)} ${dmT(d)}"><span>${wd(d)}</span><b>${+d.slice(8)}</b></a>`).join("");
-  const rows = day.items.map((x, i) => stopRow(x, st(i), i === day.items.length - 1)).join("");
-  return `<div class="dayhd"><div class="sub13">DAY ${day.n} / ${M.dates.length} · ${km ? `${Math.round(km)} KM IN TOWN` : plural(stops, "STOP")}</div><div class="h28">${esc(M.label[date])}</div></div>
+  const canMove = day.items.filter(movable).length > 1;
+  const rows = day.items.map((x, i) => stopRow(x, st(i), i === day.items.length - 1, canMove && movable(x))).join("");
+  const reset = store.order[date] ? `<button class="reset" data-act="order-reset" data-date="${date}">RESET ORDER</button>` : "";
+  return `<div class="dayhd"><div class="row"><div class="sub13">DAY ${day.n} / ${M.dates.length} · ${km ? `${Math.round(km)} KM IN TOWN` : plural(stops, "STOP")}</div>${reset}</div><div class="h28">${esc(M.label[date])}</div></div>
 <nav class="strip" id="strip" aria-label="Days">${strip}</nav>
-<div class="route" id="route">${rows || '<div class="empty">No plan for this day yet.</div>'}</div>`;
+<div class="route" id="route" data-date="${date}">${rows || '<div class="empty">No plan for this day yet.</div>'}</div>`;
 }
 
-function stopRow(x, status, last) {
+const GRIP = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5" cy="3" r="1.6"/><circle cx="11" cy="3" r="1.6"/><circle cx="5" cy="8" r="1.6"/><circle cx="11" cy="8" r="1.6"/><circle cx="5" cy="13" r="1.6"/><circle cx="11" cy="13" r="1.6"/></svg>';
+function stopRow(x, status, last, move) {
   const off = !!store.skipped[x.id], done = !off && !!store.done[x.id], open = ui.notes.has(x.id);
   // A done stop keeps its links (a guide is still worth reading); a past or skipped one drops them.
   const links = off || (status === "past" && !done) ? "" : [x.maps, ...x.links].filter(Boolean).map((l) => link(l, "schip")).join("");
   const note = x.note ? `<button class="sbtn" data-act="note" data-id="${esc(x.id)}" aria-expanded="${open}">${open ? "Hide note" : "Note"}</button>` : "";
-  return `<div class="stop ${off ? "off" : done ? "done" : status}${x.leg ? "" : " noleg"}">
+  return `<div class="stop ${off ? "off" : done ? "done" : status}${x.leg ? "" : " noleg"}"${move ? ` data-move="${esc(x.id)}"` : ""}>
 <div class="rail"><i class="node"></i>${last && !x.leg ? "" : '<i class="line"></i>'}</div>
 <div class="sbody"><div class="sop"><div class="stitle">${esc(x.title)}</div>${costLine(x)}${open ? `<div class="snote">${esc(x.note)}</div>` : ""}</div>
 <div class="schips">${links}${note}${off ? "" : `<button class="sbtn doneb" data-act="done" data-id="${esc(x.id)}" aria-pressed="${done}">${done ? "✓ Done" : "Done"}</button>`}${done ? "" : `<button class="sbtn skipb" data-act="skip" data-id="${esc(x.id)}">${off ? "Undo skip" : "Skip"}</button>`}</div>
 ${x.leg ? `<div class="leg">${esc(x.leg)}</div>` : ""}</div>
-<div class="stime">${esc(x.time || "")}</div>
+<div class="stime">${esc(x.time || "")}${move ? `<button class="grip" data-id="${esc(x.id)}" aria-label="Move ${esc(plain(x.title))}: drag, or use the arrow keys">${GRIP}</button>` : ""}</div>
 </div>`;
 }
 
@@ -925,7 +966,7 @@ async function loadData(show) {
   lastText = text; data = JSON.parse(text); M = build(data);
   applyTripKit(data.trip.kit);
   if (data.trip.start) { store.hero = { start: data.trip.start, end: data.trip.end, segments: M.segments }; persist(); }
-  if (show || !typing()) render(); else dirty = true;
+  if (show || !busy()) render(); else dirty = true;
   precacheFiles();
 }
 
@@ -935,7 +976,7 @@ function tick() {
   if (!M) return;
   const c = clock(), k = c.date + c.hm;
   if (k !== lastMinute) { lastMinute = k; dirty = true; }
-  if (dirty && !typing()) render();
+  if (dirty && !busy()) render();
 }
 
 function readHash() {
@@ -953,6 +994,7 @@ document.addEventListener("click", (e) => {
   const id = el.dataset.id;
   switch (el.dataset.act) {
     case "skip": if (store.skipped[id]) delete store.skipped[id]; else { store.skipped[id] = true; delete store.done[id]; } save(); render(); break;
+    case "order-reset": delete store.order[el.dataset.date]; save(); M = build(data); render(); break;
     case "done": if (store.done[id]) delete store.done[id]; else { store.done[id] = true; delete store.skipped[id]; } save(); render(); break;
     case "note": if (ui.notes.has(id)) ui.notes.delete(id); else ui.notes.add(id); render(); break;
     case "clamp": el.classList.toggle("clamp"); break;
@@ -1018,10 +1060,68 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("submit", (e) => { if (e.target.id === "login") { e.preventDefault(); submitLogin(); } });
 document.addEventListener("focusout", () => setTimeout(tick, 0));
 
+// Drag a stop by its grip. The row follows the finger, a teal line shows where it will land, and on release it
+// takes that place. Near the top or bottom of the screen the page scrolls. Arrow keys on the grip move it one step.
+document.addEventListener("pointerdown", (e) => {
+  const grip = e.target.closest(".grip");
+  if (!grip || !M || drag || (e.pointerType === "mouse" && e.button !== 0)) return;
+  const row = grip.closest(".stop"), route = row.closest("#route");
+  e.preventDefault();
+  grip.setPointerCapture?.(e.pointerId);
+  const rows = [...route.querySelectorAll(".stop[data-move]")], y = window.scrollY;
+  drag = { id: row.dataset.move, date: route.dataset.date, row, grip, pointer: e.pointerId, y0: e.clientY + y, cy: e.clientY, from: rows.indexOf(row), to: rows.indexOf(row),
+    others: rows.filter((r) => r !== row).map((r) => { const b = r.getBoundingClientRect(); return { r, mid: b.top + y + b.height / 2 }; }) };
+  row.classList.add("lift");
+  document.documentElement.classList.add("dragging");
+  drag.timer = setInterval(() => {
+    if (!drag) return;
+    const edge = drag.cy < 90 ? -1 : drag.cy > innerHeight - 110 ? 1 : 0;
+    if (edge) { window.scrollBy(0, edge * 10); dragMove(); }
+  }, 16);
+});
+function dragMove() {
+  const py = drag.cy + window.scrollY;
+  drag.row.style.transform = `translateY(${py - drag.y0}px)`;
+  const to = drag.others.filter((o) => o.mid < py).length;
+  if (to === drag.to && drag.shown) return;
+  drag.to = to; drag.shown = true;
+  // No line while the stop is over its own place.
+  drag.others.forEach((o, k) => {
+    o.r.classList.toggle("drop-before", to !== drag.from && k === to);
+    o.r.classList.toggle("drop-after", to !== drag.from && to === drag.others.length && k === to - 1);
+  });
+}
+document.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.pointer) return;
+  e.preventDefault();
+  drag.cy = e.clientY; dragMove();
+}, { passive: false });
+function dragEnd(e) {
+  if (!drag || e.pointerId !== drag.pointer) return;
+  const d = drag;
+  drag = null;
+  clearInterval(d.timer);
+  document.documentElement.classList.remove("dragging");
+  if (e.type === "pointerup" && d.shown) moveStop(d.date, d.id, d.to);
+  render();
+}
+document.addEventListener("pointerup", dragEnd);
+document.addEventListener("pointercancel", dragEnd);
+document.addEventListener("keydown", (e) => {
+  const grip = e.target.closest?.(".grip");
+  if (!grip || !M || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+  e.preventDefault();
+  const date = grip.closest("#route").dataset.date, id = grip.dataset.id;
+  const at = M.days[date].items.filter(movable).findIndex((x) => x.id === id);
+  if (!moveStop(date, id, at + (e.key === "ArrowUp" ? -1 : 1))) return;
+  render();
+  [...document.querySelectorAll(".grip")].find((g) => g.dataset.id === id)?.focus();
+});
+
 // Swipe left or right on the route to change the day.
 let touch = null;
 document.addEventListener("touchstart", (e) => {
-  touch = ui.tab === "day" && e.target.closest("#route") ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+  touch = ui.tab === "day" && e.target.closest("#route") && !e.target.closest(".grip") ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
 }, { passive: true });
 document.addEventListener("touchend", (e) => {
   if (!touch || !M) return;

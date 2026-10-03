@@ -6,7 +6,7 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
   Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats).
 - **/app**: the phone app, with 4 tabs. `/` and the old `/trip` and `/guide` links open it.
   - **NOW** shows what to do now and next, tonight's train or hotel, and the stops left today.
-  - **DAY** shows one day as a route line, with Maps links, Done and Skip.
+  - **DAY** shows one day as a route line, with Maps links, Done and Skip. Drag a stop by its grip to reorder the day.
   - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
   - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
     in Russian for the taxi driver, and the travel insurance.
@@ -20,7 +20,10 @@ The app is behind a password sign-in (one account) and works offline after one v
 - In a Safari tab the tabs sit at the top, clear of Safari's address bar. When you open the app from the
   Home Screen ("Add to Home Screen"), the tabs move to the bottom. TOOLS → Navigation overrides this.
 - Done stops count as behind you: NOW and NEXT move on to the next open stop, the same as after Skip.
-- Kit items, done and skipped stops and the navigation setting are kept on each phone, in `localStorage` key
+- Reordering keeps the day's time slots where they are and moves the stops through them, so a stop dragged to the top
+  takes the first time. Trains, events and stops without a time stay put. A stop's `leg` is hidden once the stop after it
+  changes. RESET ORDER in DAY goes back to the trip.json order. On a computer, the arrow keys on a grip move it too.
+- Kit items, done, skipped and reordered stops and the navigation setting are kept on each phone, in `localStorage` key
   `tripagent.uz.v1`. The kit starts from `kit` in `trip.json` when it is there. Registration-slip ticks are kept under `uz-checks`.
 - Optional fields in `trip.json` that the app uses (see `trip.example.json`):
   - on plan items: `kind` (move, food, sight, train, hotel or note; else taken from `tag`), `map`, `leg`
