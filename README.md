@@ -6,7 +6,7 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
   Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats).
 - **/app**: the phone app, with 4 tabs. `/` and the old `/trip` and `/guide` links open it.
   - **NOW** shows what to do now and next, tonight's train or hotel, and the stops left today.
-  - **DAY** shows one day as a route line, with Maps links and Skip.
+  - **DAY** shows one day as a route line, with Maps links, Done and Skip.
   - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
   - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
     in Russian for the taxi driver, and the travel insurance.
@@ -19,12 +19,14 @@ The app is behind a password sign-in (one account) and works offline after one v
 - Tabs have their own URLs: `#now`, `#day/2026-10-02`, `#trip`, `#tools`.
 - In a Safari tab the tabs sit at the top, clear of Safari's address bar. When you open the app from the
   Home Screen ("Add to Home Screen"), the tabs move to the bottom. TOOLS → Navigation overrides this.
-- Kit items, skipped stops and the navigation setting are kept on each phone, in `localStorage` key
+- Done stops count as behind you: NOW and NEXT move on to the next open stop, the same as after Skip.
+- Kit items, done and skipped stops and the navigation setting are kept on each phone, in `localStorage` key
   `tripagent.uz.v1`. The kit starts from `kit` in `trip.json` when it is there. Registration-slip ticks are kept under `uz-checks`.
 - Optional fields in `trip.json` that the app uses (see `trip.example.json`):
   - on plan items: `kind` (move, food, sight, train, hotel or note; else taken from `tag`), `map`, `leg`
     (transport to the next stop, for example `Taxi 4 km · 10 min`), `book`, `links` and `id` (a stable id
-    for skips; else the title is used);
+    for skips and done stops; else the title is used). A link can be `{ "label": "Guide", "file": "guides/x.html" }`:
+    it opens `files/guides/x.html` and, like the tickets, is kept on the phone for offline use;
   - on hotels: `phone`, `nameLocal`, `addressLocal`, `payment` (for example `50% prepaid`);
   - on bookings: `refundUntil` (for example `2026-10-02T18:48`; else it is read from the note), `mode: "flight"`
     for a flight (it is not counted as a train), and `duration` (for example `06:00`) when the arrival is in
@@ -45,7 +47,7 @@ No personal data is in this repo. It lives in the Worker's KV namespace:
 | KV key | Content | Source |
 |---|---|---|
 | `trip` | bookings, hotels, day plan, watched trains, registration slips | local `trip.json` (git-ignored) |
-| `file:<path>` | ticket PDFs, booking confirmations | local `files/` folder (git-ignored) |
+| `file:<path>` | ticket PDFs, booking confirmations, sight guides (HTML) | local `files/` folder (git-ignored) |
 | `state` | seat history, alert state, weather cache | written by the Worker |
 
 `trip.example.json` shows the format. After editing `trip.json` or adding files, run:

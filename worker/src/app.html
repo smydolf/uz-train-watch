@@ -76,6 +76,8 @@ input:focus-visible{outline:0}
 .now-lbl{display:flex;align-items:center;gap:8px;font:600 12px var(--mono);letter-spacing:.06em;color:var(--teal)}
 .now-lbl i{width:8px;height:8px;border-radius:4px;background:var(--teal);flex:none}
 .skip{font:600 12px var(--mono);letter-spacing:.04em;color:var(--muted);background:var(--raised);padding:0 12px;height:32px;border-radius:8px;flex:none}
+.acts{display:flex;gap:6px}
+.skip.done{color:var(--teal)}
 .now-title{font-size:32px;font-weight:600;line-height:1.08;letter-spacing:-.02em;overflow-wrap:anywhere}
 .now .cost{margin-top:-4px}
 .now-note{font-size:15px;line-height:1.5;color:var(--text2)}
@@ -135,6 +137,10 @@ input:focus-visible{outline:0}
 .stop.off .sop{opacity:.4}
 .stop.off .stitle{text-decoration:line-through}
 .stop.off .skipb{color:var(--teal)}
+.stop.done .node{border-color:var(--teal);background:var(--teal);display:flex;align-items:center;justify-content:center}
+.stop.done .node::after{content:"✓";font:700 10px/1 var(--sans);color:var(--bg)}
+.stop.done .sop{opacity:.55}
+.stop.done .doneb{color:var(--teal);border-color:var(--teal)}
 .empty{color:var(--muted);font-size:14px;padding:12px 0}
 
 /* TRIP */
@@ -260,7 +266,7 @@ input:focus-visible{outline:0}
 <script>
 "use strict";
 // /app: the trip companion. All trip data comes from /api/app (KV "trip" and "state"). What the user changes
-// on this phone (kit list, skipped stops, navigation mode) stays in localStorage under STORE_KEY.
+// on this phone (kit list, skipped and done stops, navigation mode) stays in localStorage under STORE_KEY.
 
 const STORE_KEY = "tripagent.uz.v1";
 const CACHE = "uz-trip-v1"; // the service worker (/sw.js) uses the same cache
@@ -333,6 +339,7 @@ function loadStore() {
     kitItems: Array.isArray(s?.kitItems) ? s.kitItems : DEFAULT_KIT.map((label, i) => ({ id: "k" + i, label, done: false })),
     kitFrom: s?.kitFrom ?? null, // the trip.json "kit" last copied to this phone
     skipped: s?.skipped && typeof s.skipped === "object" ? s.skipped : {}, // { "<item id>": true }
+    done: s?.done && typeof s.done === "object" ? s.done : {}, // { "<item id>": true }: stops ticked off
     navMode: ["auto", "top", "bottom"].includes(s?.navMode) ? s.navMode : "auto",
     savedAt: s?.savedAt ?? null,
     hero: s?.hero ?? null, // trip dates and cities for the sign-in screen, from the last data load
@@ -428,8 +435,9 @@ function dayItems(t, date, cityAt) {
     seen[base] = (seen[base] || 0) + 1;
     const kind = x.kind || KIND[x.tag] || "sight";
     const city = cityAt(date, x.key);
-    return { ...x, id: seen[base] > 1 ? `${base}~${seen[base]}` : base, kind, city, maps: mapsLink(x, kind, city),
-      links: (x.links || []).filter((l) => l && l.url && l.label) };
+    // A link with "file" (a guide in files/) opens /files/<file> and is kept offline like the tickets.
+    const links = (x.links || []).map((l) => (l?.file ? { ...l, url: fileUrl(l.file) } : l)).filter((l) => l && l.url && l.label);
+    return { ...x, id: seen[base] > 1 ? `${base}~${seen[base]}` : base, kind, city, maps: mapsLink(x, kind, city), links };
   });
 }
 
@@ -503,12 +511,14 @@ function warnings(clk) {
   return out;
 }
 
-// raw = the last item that has started; now = the first not-skipped item from raw on; next = the one after it.
+// Skipped and done stops are both behind you: NOW and NEXT pass over them.
+const settled = (x) => !!(store.skipped[x.id] || store.done[x.id]);
+// raw = the last item that has started; now = the first open (not skipped or done) item from raw on; next = the one after it.
 function nowNext(day, clk) {
-  const items = day.items, sk = store.skipped;
+  const items = day.items;
   let raw = -1;
   items.forEach((x, i) => { if (x.time && toMin(x.time) <= clk.min) raw = i; });
-  const active = (from) => items.findIndex((x, i) => i >= from && x.time && !sk[x.id]);
+  const active = (from) => items.findIndex((x, i) => i >= from && x.time && !settled(x));
   const now = active(raw >= 0 ? raw : 0);
   return { raw, now, next: now >= 0 ? active(now + 1) : -1, early: raw < 0, movedUp: raw >= 0 && now > raw };
 }
@@ -516,7 +526,7 @@ function statusOf(day, clk) {
   if (day.date !== clk.date) return () => (day.date < clk.date ? "past" : "future");
   if (!day.items.some((x) => x.time)) return () => "future";
   const { now } = nowNext(day, clk);
-  const cur = now >= 0 ? now : day.items.length; // the rest of the day is skipped
+  const cur = now >= 0 ? now : day.items.length; // the rest of the day is done or skipped
   // Items without a time (a tip, the day's route) stay open all day.
   return (i) => (!day.items[i].time ? "future" : i < cur ? "past" : i === cur ? "cur" : "future");
 }
@@ -572,12 +582,12 @@ function nowCard(day, nn) {
   if (x) label = nn.early ? `FIRST · ${x.time}` : nn.movedUp ? "NOW · MOVED UP" : `NOW · SINCE ${x.time}`;
   else if (day.items.length && !day.items.some((i) => i.time)) { x = day.items[0]; label = "TODAY"; }
   else {
-    const [title, note] = day.items.length ? ["Nothing left today", "The rest of the day is skipped. Undo a skip in DAY."] : ["No plan for today", "Add stops to the plan in trip.json."];
+    const [title, note] = day.items.length ? ["Nothing left today", "The rest of the day is done or skipped. Undo it in DAY."] : ["No plan for today", "Add stops to the plan in trip.json."];
     return `<section class="card now"><div class="now-lbl"><i></i>NOW</div><div class="now-title">${title}</div><div class="now-note">${note}</div>
 <div class="two"><a class="btn pri" href="#day">Day</a><a class="btn" href="#tools">Tools</a></div></section>`;
   }
   return `<section class="card now">
-<div class="row"><div class="now-lbl"><i></i>${label}</div>${label === "TODAY" ? "" : `<button class="skip" data-act="skip" data-id="${esc(x.id)}">SKIP</button>`}</div>
+<div class="row"><div class="now-lbl"><i></i>${label}</div>${label === "TODAY" ? "" : `<div class="acts"><button class="skip done" data-act="done" data-id="${esc(x.id)}">✓ DONE</button><button class="skip" data-act="skip" data-id="${esc(x.id)}">SKIP</button></div>`}</div>
 <div class="now-title">${esc(x.title)}</div>${costLine(x)}
 ${x.note ? `<div class="now-note clamp" data-act="clamp">${esc(x.note)}</div>` : ""}
 ${x.maps ? `<div class="two"><a class="btn pri" href="${esc(x.maps.url)}" target="_blank" rel="noopener">${x.maps.label}</a>${day.date in ZONES ? "" : '<a class="btn" href="https://go.yandex/" target="_blank" rel="noopener">Yandex Go</a>'}</div>` : ""}
@@ -589,7 +599,7 @@ function nextCard(day, nn, clk) {
   let x = day.items[nn.next], when;
   if (x) when = countdown(toMin(x.time) - clk.min);
   else {
-    x = M.days[addDays(day.date, 1)]?.items.find((i) => i.time && !store.skipped[i.id]);
+    x = M.days[addDays(day.date, 1)]?.items.find((i) => i.time && !settled(i));
     if (!x) return "";
     when = "TOMORROW";
   }
@@ -622,7 +632,7 @@ function tonightCard(clk) {
 }
 
 function statTiles(day, nn, city, w) {
-  const left = nn.now < 0 ? 0 : day.items.filter((x, i) => i > nn.now && x.time && !store.skipped[x.id]).length;
+  const left = nn.now < 0 ? 0 : day.items.filter((x, i) => i > nn.now && x.time && !settled(x)).length;
   return `<div class="stats">
 <div class="tile"><div class="k">LEFT</div><div class="v">${left}</div><div class="u">${left === 1 ? "stop" : "stops"}</div></div>
 <div class="tile"><div class="k">SUNSET</div><div class="v">${w?.sunset ? esc(w.sunset) : "—"}</div><div class="u">today</div></div>
@@ -668,13 +678,14 @@ function renderDay(clk) {
 }
 
 function stopRow(x, status, last) {
-  const off = !!store.skipped[x.id], open = ui.notes.has(x.id);
-  const links = off || status === "past" ? "" : [x.maps, ...x.links].filter(Boolean).map((l) => link(l, "schip")).join("");
+  const off = !!store.skipped[x.id], done = !off && !!store.done[x.id], open = ui.notes.has(x.id);
+  // A done stop keeps its links (a guide is still worth reading); a past or skipped one drops them.
+  const links = off || (status === "past" && !done) ? "" : [x.maps, ...x.links].filter(Boolean).map((l) => link(l, "schip")).join("");
   const note = x.note ? `<button class="sbtn" data-act="note" data-id="${esc(x.id)}" aria-expanded="${open}">${open ? "Hide note" : "Note"}</button>` : "";
-  return `<div class="stop ${off ? "off" : status}${x.leg ? "" : " noleg"}">
+  return `<div class="stop ${off ? "off" : done ? "done" : status}${x.leg ? "" : " noleg"}">
 <div class="rail"><i class="node"></i>${last && !x.leg ? "" : '<i class="line"></i>'}</div>
 <div class="sbody"><div class="sop"><div class="stitle">${esc(x.title)}</div>${costLine(x)}${open ? `<div class="snote">${esc(x.note)}</div>` : ""}</div>
-<div class="schips">${links}${note}<button class="sbtn skipb" data-act="skip" data-id="${esc(x.id)}">${off ? "Undo skip" : "Skip"}</button></div>
+<div class="schips">${links}${note}${off ? "" : `<button class="sbtn doneb" data-act="done" data-id="${esc(x.id)}" aria-pressed="${done}">${done ? "✓ Done" : "Done"}</button>`}${done ? "" : `<button class="sbtn skipb" data-act="skip" data-id="${esc(x.id)}">${off ? "Undo skip" : "Skip"}</button>`}</div>
 ${x.leg ? `<div class="leg">${esc(x.leg)}</div>` : ""}</div>
 <div class="stime">${esc(x.time || "")}</div>
 </div>`;
@@ -755,10 +766,11 @@ function papers() {
     return `<div class="krow"><button class="kdot${on ? " on" : ""}" data-act="slip" data-id="${id}" aria-label="Kept: ${esc(s)}"></button><button class="klabel${on ? " done" : ""}" data-act="slip" data-id="${id}">${esc(s)}</button></div>`;
   }).join("")}</section>` : "";
   return `<section class="card papers"><button class="pt" data-act="slips" aria-expanded="${ui.slipsOpen}"><div class="lbl4">SLIPS</div><div class="t22">${kept} / ${slips.length}</div><div class="s12">keep every one ${ui.slipsOpen ? "▴" : "▾"}</div></button>
-<div class="pt"><div class="lbl4">FILES</div><div class="t22" id="files-state">…</div><div class="s12">tickets &amp; bookings</div></div></section>${list}`;
+<div class="pt"><div class="lbl4">FILES</div><div class="t22" id="files-state">…</div><div class="s12">tickets &amp; guides</div></div></section>${list}`;
 }
 
-const allFiles = () => [...new Set([...M.t.bookings, ...M.t.hotels].flatMap((x) => x.files || []))];
+const planFiles = () => Object.values(M.t.plan).flat().flatMap((x) => (x?.links || []).map((l) => l?.file).filter(Boolean));
+const allFiles = () => [...new Set([...[...M.t.bookings, ...M.t.hotels].flatMap((x) => x.files || []), ...planFiles()])];
 async function filesState() {
   const el = document.getElementById("files-state");
   if (!el || !M) return;
@@ -940,7 +952,8 @@ document.addEventListener("click", (e) => {
   if (a && a !== el && el.contains(a)) return; // a link inside a tappable row: follow the link
   const id = el.dataset.id;
   switch (el.dataset.act) {
-    case "skip": if (store.skipped[id]) delete store.skipped[id]; else store.skipped[id] = true; save(); render(); break;
+    case "skip": if (store.skipped[id]) delete store.skipped[id]; else { store.skipped[id] = true; delete store.done[id]; } save(); render(); break;
+    case "done": if (store.done[id]) delete store.done[id]; else { store.done[id] = true; delete store.skipped[id]; } save(); render(); break;
     case "note": if (ui.notes.has(id)) ui.notes.delete(id); else ui.notes.add(id); render(); break;
     case "clamp": el.classList.toggle("clamp"); break;
     case "tday": ui.openDay = ui.openDay === el.dataset.date ? null : el.dataset.date; render(); break;
