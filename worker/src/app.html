@@ -619,13 +619,15 @@ function renderNow(clk) {
     + nowCard(day, nn) + nextCard(day, nn, clk) + guideTiles(day, clk, city) + tonightCard(clk) + statTiles(day, nn, city, w);
 }
 
-// Guides as tiles: the city's pages (trip.json "guides": the city guide, things to book) while you are in that city,
-// then the guides linked from today's open stops and tomorrow's. A link labelled just "Guide" takes the stop's title;
-// done and skipped stops drop out.
+// Guides as tiles, while you are in a city: its guide (trip.json "guides"), then the guides linked from today's open
+// stops and tomorrow's, then its other pages ("guides" with a "label", such as things to book). A link labelled just
+// "Guide" takes the stop's title; done and skipped stops drop out.
 function guideTiles(day, clk, city) {
   const seen = new Set(), tiles = [];
   const add = (file, k, title, u, c) => { if (file && !seen.has(file)) { seen.add(file); tiles.push({ file, k, title, u, c }); } };
-  for (const g of M.t.guides || []) if (g.city === city) add(g.file, g.label || "CITY GUIDE", g.title || g.city, g.note || "History and maps", color(city));
+  const pages = (M.t.guides || []).filter((g) => g.city === city);
+  const page = (g) => add(g.file, g.label || "CITY GUIDE", g.title || g.city, g.note || "History and maps", color(city));
+  pages.filter((g) => !g.label).forEach(page);
   const st = statusOf(day, clk), tomorrow = M.days[addDays(day.date, 1)];
   const fromStops = (d, open, when) => (d?.items || []).forEach((x, i) => {
     if (!open(i) || settled(x)) return;
@@ -633,6 +635,7 @@ function guideTiles(day, clk, city) {
   });
   fromStops(day, (i) => st(i) !== "past", (x) => (x.time ? `TODAY · ${x.time}` : "TODAY"));
   fromStops(tomorrow, () => true, (x) => `${wd(tomorrow.date)}${x.time ? ` · ${x.time}` : ""}`);
+  pages.filter((g) => g.label).forEach(page);
   if (!tiles.length) return "";
   return `<div class="hd"><span>GUIDES</span><span>${tiles.length}</span></div>
 <div class="guides">${tiles.map((g) => `<a class="tile gtile" href="${esc(fileUrl(g.file))}" target="_blank" rel="noopener"${g.c ? ` style="--c:${g.c}"` : ""}><div class="k">${esc(g.k)}</div><div class="gt">${esc(g.title)}</div><div class="u">${esc(g.u)} ↗</div></a>`).join("")}</div>`;

@@ -42,8 +42,8 @@ The app is behind a password sign-in (one account) and works offline after one v
     `[{ "name": "AXA", "holder": "…", "policy": "…", "phone": "+48 …", "phoneLabel": "24/7 alarm centre", "note": "…" }]`;
   - `guides` at the top level: city pages, for example `[{ "city": "Bukhara", "title": "Bukhara", "file": "guides/buchara.html", "note": "History, maps" }]`;
     `label` replaces the tile's "CITY GUIDE" heading (for example `"TO BOOK"` for a page of tours).
-    NOW shows these as tiles on the days spent in that city, then a tile for each guide linked from today's open
-    stops and tomorrow's (done and skipped stops drop out). A tile takes the link's `title`, else the stop's title when
+    On the days spent in that city NOW shows the city guide as a tile, then a tile for each guide linked from today's
+    open stops and tomorrow's (done and skipped stops drop out), then the pages with a `label`. A tile takes the link's `title`, else the stop's title when
     the link is labelled just "Guide", else the link's label. City guides are kept on the phone like the other files;
   - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
