@@ -619,12 +619,13 @@ function renderNow(clk) {
     + nowCard(day, nn) + nextCard(day, nn, clk) + tonightCard(clk) + statTiles(day, nn, city, w) + guideTiles(day, clk, city);
 }
 
-// Guides as tiles: the city guide (trip.json "guides") while you are in that city, then the guides linked from
-// today's open stops and tomorrow's. A link labelled just "Guide" takes the stop's title; done and skipped stops drop out.
+// Guides as tiles: the city's pages (trip.json "guides": the city guide, things to book) while you are in that city,
+// then the guides linked from today's open stops and tomorrow's. A link labelled just "Guide" takes the stop's title;
+// done and skipped stops drop out.
 function guideTiles(day, clk, city) {
   const seen = new Set(), tiles = [];
   const add = (file, k, title, u, c) => { if (file && !seen.has(file)) { seen.add(file); tiles.push({ file, k, title, u, c }); } };
-  for (const g of M.t.guides || []) if (g.city === city) add(g.file, "CITY GUIDE", g.title || g.city, g.note || "History and maps", color(city));
+  for (const g of M.t.guides || []) if (g.city === city) add(g.file, g.label || "CITY GUIDE", g.title || g.city, g.note || "History and maps", color(city));
   const st = statusOf(day, clk), tomorrow = M.days[addDays(day.date, 1)];
   const fromStops = (d, open, when) => (d?.items || []).forEach((x, i) => {
     if (!open(i) || settled(x)) return;
