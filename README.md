@@ -5,7 +5,7 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
 - **Seat watcher**: every 5 minutes it checks eticket.uzrailpass.uz for the trains you watch and sends
   Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats).
 - **/app**: the phone app, with 4 tabs. `/` and the old `/trip` and `/guide` links open it.
-  - **NOW** shows what to do now and next, tonight's train or hotel, and the stops left today.
+  - **NOW** shows what to do now and next, tonight's train or hotel, the stops left today, and the guides as tiles.
   - **DAY** shows one day as a route line, with Maps links, Done and Skip. Drag a stop by its grip to reorder the day.
   - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
   - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
@@ -39,6 +39,10 @@ The app is behind a password sign-in (one account) and works offline after one v
     the phone stay;
   - `insurance` at the top level: travel insurance cards in TOOLS, for example
     `[{ "name": "AXA", "holder": "…", "policy": "…", "phone": "+48 …", "phoneLabel": "24/7 alarm centre", "note": "…" }]`;
+  - `guides` at the top level: city guides, for example `[{ "city": "Bukhara", "title": "Bukhara", "file": "guides/buchara.html", "note": "History, maps" }]`.
+    NOW shows the city guide as a tile on the days spent in that city, then a tile for each guide linked from today's open
+    stops and tomorrow's (done and skipped stops drop out). A tile takes the link's `title`, else the stop's title when
+    the link is labelled just "Guide", else the link's label. City guides are kept on the phone like the other files;
   - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
     clock until the day ends there. Every other day is in Tashkent time.

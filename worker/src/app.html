@@ -101,6 +101,10 @@ input:focus-visible{outline:0}
 .tile .k{font:600 11px var(--mono);color:var(--muted)}
 .tile .v{font-size:20px;font-weight:600;margin-top:2px}
 .tile .u{font-size:12px;color:var(--muted)}
+.guides{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.gtile{display:flex;flex-direction:column;gap:4px;min-height:108px}
+.gtile .k{color:var(--c,var(--teal))}
+.gtile .gt{flex:1;font-size:16px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
 
 /* DAY */
 .dayhd{padding:6px 6px 0}
@@ -612,7 +616,25 @@ function renderNow(clk) {
   }
   const day = M.days[clk.date], nn = nowNext(day, clk), city = M.stay[clk.date], w = weatherOf(city, clk.date);
   return `<div class="hd"><span>DAY ${day.n} · ${wdm(clk.date)}${clk.off !== TZ_MIN ? ` · ${utcText(clk.off)}` : ""}</span><span>${esc(city.toUpperCase())}${w ? ` ${w.max}°` : ""}</span></div>`
-    + nowCard(day, nn) + nextCard(day, nn, clk) + tonightCard(clk) + statTiles(day, nn, city, w);
+    + nowCard(day, nn) + nextCard(day, nn, clk) + tonightCard(clk) + statTiles(day, nn, city, w) + guideTiles(day, clk, city);
+}
+
+// Guides as tiles: the city guide (trip.json "guides") while you are in that city, then the guides linked from
+// today's open stops and tomorrow's. A link labelled just "Guide" takes the stop's title; done and skipped stops drop out.
+function guideTiles(day, clk, city) {
+  const seen = new Set(), tiles = [];
+  const add = (file, k, title, u, c) => { if (file && !seen.has(file)) { seen.add(file); tiles.push({ file, k, title, u, c }); } };
+  for (const g of M.t.guides || []) if (g.city === city) add(g.file, "CITY GUIDE", g.title || g.city, g.note || "History and maps", color(city));
+  const st = statusOf(day, clk), tomorrow = M.days[addDays(day.date, 1)];
+  const fromStops = (d, open, when) => (d?.items || []).forEach((x, i) => {
+    if (!open(i) || settled(x)) return;
+    for (const l of x.links) if (l.file) add(l.file, when(x), l.title || (/^guide$/i.test(l.label) ? plain(x.title) : l.label), "Guide");
+  });
+  fromStops(day, (i) => st(i) !== "past", (x) => (x.time ? `TODAY · ${x.time}` : "TODAY"));
+  fromStops(tomorrow, () => true, (x) => `${wd(tomorrow.date)}${x.time ? ` · ${x.time}` : ""}`);
+  if (!tiles.length) return "";
+  return `<div class="hd"><span>GUIDES</span><span>${tiles.length}</span></div>
+<div class="guides">${tiles.map((g) => `<a class="tile gtile" href="${esc(fileUrl(g.file))}" target="_blank" rel="noopener"${g.c ? ` style="--c:${g.c}"` : ""}><div class="k">${esc(g.k)}</div><div class="gt">${esc(g.title)}</div><div class="u">${esc(g.u)} ↗</div></a>`).join("")}</div>`;
 }
 
 function nowCard(day, nn) {
@@ -811,7 +833,7 @@ function papers() {
 }
 
 const planFiles = () => Object.values(M.t.plan).flat().flatMap((x) => (x?.links || []).map((l) => l?.file).filter(Boolean));
-const allFiles = () => [...new Set([...[...M.t.bookings, ...M.t.hotels].flatMap((x) => x.files || []), ...planFiles()])];
+const allFiles = () => [...new Set([...[...M.t.bookings, ...M.t.hotels].flatMap((x) => x.files || []), ...planFiles(), ...(M.t.guides || []).map((g) => g.file).filter(Boolean)])];
 async function filesState() {
   const el = document.getElementById("files-state");
   if (!el || !M) return;
