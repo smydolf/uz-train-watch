@@ -6,7 +6,7 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
   Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats).
 - **/app**: the phone app, with 4 tabs. `/` and the old `/trip` and `/guide` links open it.
   - **NOW** shows what to do now and next, the guides as tiles (the city guide first, then the next stops' guides),
-    tonight's train or hotel, and the stops left today.
+    the city map with a "you are here" dot, tonight's train or hotel, and the stops left today.
   - **DAY** shows one day as a route line, with Maps links, Done and Skip. Drag a stop by its grip to reorder the day.
   - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
   - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
@@ -45,6 +45,12 @@ The app is behind a password sign-in (one account) and works offline after one v
     On the days spent in that city NOW shows the city guide as a tile, then a tile for each guide linked from today's
     open stops and tomorrow's (done and skipped stops drop out), then the pages with a `label`. A tile takes the link's `title`, else the stop's title when
     the link is labelled just "Guide", else the link's label. City guides are kept on the phone like the other files;
+  - `maps` at the top level: the NOW map, one SVG per city, for example
+    `[{ "city": "Bukhara", "file": "maps/buchara.svg", "geo": [39.7676, 39.7868, 64.3962, 64.4318], "size": [2000, 1404] }]`.
+    `geo` is the map's box (south, north, west, east) in the equirectangular projection the maps are drawn in
+    (x = (lon − west) · cos(mid latitude) · s, y = (north − lat) · s), `size` its width and height in pixels, shown 1:1.
+    NOW shows the map you are on (else today's city's); LOCATE starts the location watch, which runs only while NOW is
+    on screen and is remembered on the phone. The SVGs carry their own styles, since the app shows them as images;
   - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
     clock until the day ends there. Every other day is in Tashkent time.

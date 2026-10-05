@@ -42,9 +42,9 @@ export function appPayload(trip, state) {
       .sort((a, b) => a.dep.localeCompare(b.dep));
     return { date: w.date, from: w.from, to: w.to, why: w.why ?? "", trains: list };
   });
-  const { start, end, startCity, passengers, bookings, hotels, events, planned, plan, slips, zones, kit, insurance, guides } = trip;
+  const { start, end, startCity, passengers, bookings, hotels, events, planned, plan, slips, zones, kit, insurance, guides, maps } = trip;
   return {
-    trip: { start, end, startCity, passengers, bookings, hotels, events, planned, plan, slips, zones, kit, insurance, guides },
+    trip: { start, end, startCity, passengers, bookings, hotels, events, planned, plan, slips, zones, kit, insurance, guides, maps },
     watch,
     last: state.last ?? null,
     weather: state.weather?.days ?? {},

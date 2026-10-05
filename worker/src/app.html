@@ -105,6 +105,16 @@ input:focus-visible{outline:0}
 .gtile{display:flex;flex-direction:column;gap:4px;min-height:108px}
 .gtile .k{color:var(--c,var(--teal))}
 .gtile .gt{flex:1;font-size:16px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+.mapc{padding:16px 14px 14px;gap:8px}
+.mapc .row{padding:0 6px}
+.mapc .sub{padding:0 6px;margin:0}
+.mapc .acts{display:flex;gap:14px}
+.mapbox{height:min(52vh,380px);overflow:auto;border-radius:16px;background:#1a2233;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.mapin{position:relative}
+.mapin img{display:block;max-width:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.me-dot,.me-acc{position:absolute;display:none;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
+.me-dot{width:22px;height:22px;background:#2f80ed;border:4px solid #fff;box-shadow:0 0 0 7px rgba(47,128,237,.3)}
+.me-acc{background:rgba(47,128,237,.14);border:1.5px solid rgba(47,128,237,.45)}
 
 /* DAY */
 .dayhd{padding:6px 6px 0}
@@ -332,7 +342,7 @@ const link = (l, cls) => `<a class="${cls}" href="${esc(l.url)}"${isWeb(l.url) ?
 const costLine = (x) => (x.cost || x.book ? `<div class="cost">${x.cost ? `<span>${esc(x.cost)}</span>` : ""}${x.book ? '<span class="bk">BOOK AHEAD</span>' : ""}</div>` : "");
 const seatText = (b) => [b.car && `Car ${b.car}`, b.seat].filter(Boolean).join(" · ");
 const typing = () => !!document.activeElement?.matches?.("input, textarea");
-const busy = () => !!drag || typing(); // never re-render under the user's finger or keyboard
+const busy = () => !!drag || typing() || Date.now() - geo.touched < 4000; // never re-render under the user's finger or keyboard
 
 // Tashkent time now, or the time in ?at=2026-10-02T12:40 (read as that day's local time) for testing.
 // A day in ZONES runs on its own clock while it is that date there, or already that date in Tashkent.
@@ -359,6 +369,7 @@ function loadStore() {
     navMode: ["auto", "top", "bottom"].includes(s?.navMode) ? s.navMode : "auto",
     savedAt: s?.savedAt ?? null,
     hero: s?.hero ?? null, // trip dates and cities for the sign-in screen, from the last data load
+    geoOn: s?.geoOn === true, // the NOW map follows the phone's location
   };
 }
 let store = loadStore();
@@ -576,6 +587,98 @@ const weatherOf = (city, date) => data.weather?.[city]?.[date] || null;
 const clampDate = (date) => (date < M.t.start ? M.t.start : date > M.t.end ? M.t.end : date);
 const countdown = (d) => (d <= 0 ? "NOW" : d < 60 ? `IN ${d} MIN` : `IN ${Math.floor(d / 60)} H${d % 60 ? ` ${d % 60} MIN` : ""}`);
 
+// ---- NOW map: the city's map (trip.json "maps") with a "you are here" dot ----
+// A map is an SVG in files/ with its box [south, north, west, east] and size in trip.json, drawn in the guides'
+// equirectangular projection: x = (lon - west) * cos(mid lat) * s, y = (north - lat) * s. Its element is kept
+// between renders, so the image, the scroll position and the dot survive the minute tick. The location watch
+// runs only while NOW is on screen, and only once LOCATE was tapped (remembered on the phone).
+const geo = { watch: null, fix: null, err: "", recenter: false, touched: 0 };
+const mapEls = {}; // file → the kept .mapbox element
+function mapXY(m, lat, lon) {
+  const [s, n, w, e] = m.geo, k = Math.cos(((s + n) / 2) * Math.PI / 180), sx = m.size[0] / ((e - w) * k);
+  return { x: (lon - w) * k * sx, y: (n - lat) * sx, m2px: sx / 111320 };
+}
+const onMap = (m, f) => { const p = mapXY(m, f.lat, f.lon); return p.x >= 0 && p.y >= 0 && p.x <= m.size[0] && p.y <= m.size[1]; };
+// The map you are on, else today's city's.
+const mapFor = (city) => { const maps = (M.t.maps || []).filter((m) => m.file && m.geo?.length === 4 && m.size?.length === 2);
+  return (geo.fix && maps.find((m) => onMap(m, geo.fix))) || maps.find((m) => m.city === city) || null; };
+const shownMap = () => { const el = document.getElementById("mapbox"); return el && (M.t.maps || []).find((m) => m.file === el.dataset.file); };
+function geoText(m) {
+  if (!store.geoOn) return "Tap LOCATE to see where you are.";
+  if (geo.err) return geo.err;
+  if (!geo.fix) return "Finding you…";
+  if (!onMap(m, geo.fix)) {
+    const [s, n, w, e] = m.geo, k = Math.cos(((s + n) / 2) * Math.PI / 180);
+    const km = Math.hypot((geo.fix.lat - (s + n) / 2) * 111.32, (geo.fix.lon - (w + e) / 2) * 111.32 * k);
+    return `You are off this map, ${km < 10 ? km.toFixed(1) : Math.round(km)} km from its centre.`;
+  }
+  return `You are the blue dot · ±${geo.fix.acc < 1000 ? `${Math.max(5, Math.round(geo.fix.acc / 5) * 5)} m` : `${(geo.fix.acc / 1000).toFixed(1)} km`}`;
+}
+const geoActs = () => (store.geoOn ? '<button class="teal" data-act="geo">CENTER</button><button class="teal" data-act="geo-off">OFF</button>' : '<button class="teal" data-act="geo">LOCATE</button>');
+function mapCard(city) {
+  const m = mapFor(city);
+  if (!m) return "";
+  return `<section class="card mapc"><div class="row lbl"><span>MAP · ${esc(String(m.city).toUpperCase())}</span><span class="acts" id="geo-acts">${geoActs()}</span></div>
+<div class="sub" id="geo-state">${esc(geoText(m))}</div><div id="mapslot" data-file="${esc(m.file)}"></div></section>`;
+}
+function mapEl(m) {
+  if (!mapEls[m.file]) {
+    const el = document.createElement("div"), [W, H] = m.size;
+    el.className = "mapbox"; el.id = "mapbox"; el.dataset.file = m.file; el.dataset.fresh = "1";
+    el.innerHTML = `<div class="mapin" style="width:${W}px;height:${H}px"><img src="${esc(fileUrl(m.file))}" width="${W}" height="${H}" alt="Map of ${esc(m.city)}" draggable="false"><i class="me-acc"></i><i class="me-dot"></i></div>`;
+    el.addEventListener("scroll", () => { geo.touched = Date.now(); }, { passive: true });
+    mapEls[m.file] = el;
+  }
+  return mapEls[m.file];
+}
+function centreMap(m, el) {
+  const p = geo.fix && onMap(m, geo.fix) ? mapXY(m, geo.fix.lat, geo.fix.lon) : { x: m.size[0] / 2, y: m.size[1] / 2 };
+  el.scrollLeft = p.x - el.clientWidth / 2; el.scrollTop = p.y - el.clientHeight / 2;
+}
+function drawDot() {
+  const el = document.getElementById("mapbox"), m = el && shownMap();
+  if (!m) return;
+  const dot = el.querySelector(".me-dot"), acc = el.querySelector(".me-acc"), show = !!(store.geoOn && geo.fix && onMap(m, geo.fix));
+  dot.style.display = acc.style.display = show ? "block" : "none";
+  if (show) {
+    const p = mapXY(m, geo.fix.lat, geo.fix.lon), d = Math.min(2 * geo.fix.acc * p.m2px, 2 * m.size[0]);
+    dot.style.left = acc.style.left = `${p.x}px`; dot.style.top = acc.style.top = `${p.y}px`;
+    acc.style.width = acc.style.height = `${d}px`;
+  }
+  const st = document.getElementById("geo-state"), acts = document.getElementById("geo-acts");
+  if (st) st.textContent = geoText(m);
+  if (acts && acts.innerHTML !== geoActs()) acts.innerHTML = geoActs();
+}
+function mapAfterRender() {
+  const slot = document.getElementById("mapslot"), m = slot && (M.t.maps || []).find((x) => x.file === slot.dataset.file);
+  if (!m) { geoStop(); return; }
+  const el = mapEl(m);
+  slot.replaceWith(el);
+  if (el.dataset.fresh) { delete el.dataset.fresh; centreMap(m, el); } else { el.scrollLeft = el._l; el.scrollTop = el._t; }
+  drawDot();
+  geoResume();
+}
+function geoStart() {
+  if (geo.watch !== null || !("geolocation" in navigator)) return;
+  geo.watch = navigator.geolocation.watchPosition(onFix, onGeoError, { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+}
+function geoStop() { if (geo.watch !== null) navigator.geolocation.clearWatch(geo.watch); geo.watch = null; }
+function geoResume() { if (store.geoOn && !document.hidden && ui.tab === "now" && document.getElementById("mapbox")) geoStart(); }
+function onFix(pos) {
+  const { latitude: lat, longitude: lon, accuracy: acc } = pos.coords, first = !geo.fix;
+  geo.fix = { lat, lon, acc }; geo.err = "";
+  const m = shownMap();
+  if (m && !onMap(m, geo.fix) && mapFor(M.stay[clock().date])?.file !== m.file) { render(); return; } // you are on the other city's map
+  const el = document.getElementById("mapbox");
+  if (m && el && (first || geo.recenter) && onMap(m, geo.fix)) { geo.recenter = false; centreMap(m, el); }
+  drawDot();
+}
+function onGeoError(e) {
+  if (e.code === 1) { geo.err = "Location is blocked. Allow it in Settings → Privacy → Location Services."; store.geoOn = false; save(); geoStop(); }
+  else geo.err = geo.fix ? "" : "No location fix yet. Try outside.";
+  drawDot();
+}
+
 // ---- Render ----
 const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 function navBottom() {
@@ -592,6 +695,7 @@ function render() {
     $app.innerHTML = `<main class="scr"><section class="card"><div class="lbl">No trip yet</div><div class="t20">Upload trip.json to KV</div><div class="sub">See the README: scripts/upload.sh.</div></section></main>`;
     return;
   }
+  for (const el of Object.values(mapEls)) if (el.isConnected) { el._l = el.scrollLeft; el._t = el.scrollTop; }
   const tabs = TABS.map((t) => `<a href="#${t}"${ui.tab === t ? ' class="on" aria-current="page"' : ""}>${t.toUpperCase()}</a>`).join("");
   const body = { now: renderNow, day: renderDay, trip: renderTrip, tools: renderTools }[ui.tab](clk);
   const sim = clk.simulated ? `<a class="sim" href="${location.pathname}${location.hash}">SIMULATED TIME · ${wdm(clk.date)} ${clk.hm} · CLEAR ×</a>` : "";
@@ -600,6 +704,7 @@ function render() {
   const strip = document.getElementById("strip"), on = strip?.querySelector(".on");
   if (on) strip.scrollLeft = on.offsetLeft - (strip.clientWidth - on.clientWidth) / 2;
   if (document.getElementById("files-state")) filesState();
+  mapAfterRender();
 }
 
 const warnCard = (list) => `<section class="card warn"><div class="lbl">Needs you · ${list.length}</div>${list
@@ -616,7 +721,7 @@ function renderNow(clk) {
   }
   const day = M.days[clk.date], nn = nowNext(day, clk), city = M.stay[clk.date], w = weatherOf(city, clk.date);
   return `<div class="hd"><span>DAY ${day.n} · ${wdm(clk.date)}${clk.off !== TZ_MIN ? ` · ${utcText(clk.off)}` : ""}</span><span>${esc(city.toUpperCase())}${w ? ` ${w.max}°` : ""}</span></div>`
-    + nowCard(day, nn) + nextCard(day, nn, clk) + guideTiles(day, clk, city) + tonightCard(clk) + statTiles(day, nn, city, w);
+    + nowCard(day, nn) + nextCard(day, nn, clk) + guideTiles(day, clk, city) + mapCard(city) + tonightCard(clk) + statTiles(day, nn, city, w);
 }
 
 // Guides as tiles, while you are in a city: its guide (trip.json "guides"), then the guides linked from today's open
@@ -837,7 +942,7 @@ function papers() {
 }
 
 const planFiles = () => Object.values(M.t.plan).flat().flatMap((x) => (x?.links || []).map((l) => l?.file).filter(Boolean));
-const allFiles = () => [...new Set([...[...M.t.bookings, ...M.t.hotels].flatMap((x) => x.files || []), ...planFiles(), ...(M.t.guides || []).map((g) => g.file).filter(Boolean)])];
+const allFiles = () => [...new Set([...[...M.t.bookings, ...M.t.hotels].flatMap((x) => x.files || []), ...planFiles(), ...[...(M.t.guides || []), ...(M.t.maps || [])].map((g) => g.file).filter(Boolean)])];
 async function filesState() {
   const el = document.getElementById("files-state");
   if (!el || !M) return;
@@ -1042,6 +1147,14 @@ document.addEventListener("click", (e) => {
     }
     case "logout": logout(); break;
     case "retry": loadData(true); break;
+    case "geo": {
+      const m = shownMap(), el = document.getElementById("mapbox");
+      if (!store.geoOn) { store.geoOn = true; geo.err = ""; save(); geo.recenter = true; geoStart(); }
+      else if (m && el) centreMap(m, el);
+      drawDot();
+      break;
+    }
+    case "geo-off": store.geoOn = false; save(); geoStop(); geo.fix = null; geo.err = ""; drawDot(); break;
   }
 });
 
@@ -1159,7 +1272,10 @@ document.addEventListener("touchend", (e) => {
 }, { passive: true });
 
 window.addEventListener("hashchange", () => { readHash(); render(); window.scrollTo(0, 0); });
-document.addEventListener("visibilitychange", () => { if (!document.hidden && M) { tick(); loadData(false); } });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { geoStop(); return; }
+  if (M) { tick(); loadData(false); geoResume(); }
+});
 matchMedia("(display-mode: standalone)").addEventListener?.("change", render);
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

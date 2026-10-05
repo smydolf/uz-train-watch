@@ -14,7 +14,7 @@ if [ -d files ]; then
     name="${f#files/}"
     case "${f##*.}" in
       pdf) type=application/pdf ;; png) type=image/png ;; jpg|jpeg) type=image/jpeg ;; webp) type=image/webp ;;
-      html) type=text/html ;; *) type=application/octet-stream ;;
+      html) type=text/html ;; svg) type=image/svg+xml ;; *) type=application/octet-stream ;;
     esac
     (cd worker && npx wrangler kv key put "file:$name" --path "../$f" --binding STATE --remote --metadata "{\"type\":\"$type\"}")
     echo "uploaded $name ($type)"
