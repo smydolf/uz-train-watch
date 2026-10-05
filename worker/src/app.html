@@ -115,6 +115,14 @@ input:focus-visible{outline:0}
 .me-dot,.me-acc{position:absolute;display:none;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
 .me-dot{width:22px;height:22px;background:#2f80ed;border:4px solid #fff;box-shadow:0 0 0 7px rgba(47,128,237,.3)}
 .me-acc{background:rgba(47,128,237,.14);border:1.5px solid rgba(47,128,237,.45)}
+.poi{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border:0;padding:0;border-radius:50%;background:none;cursor:pointer}
+.poi:active,.poi.on{background:rgba(255,255,255,.14)}
+.tip{position:absolute;z-index:2;width:240px;transform:translate(-50%,-100%);background:var(--raised);color:var(--text);border:1px solid var(--dim);border-radius:14px;padding:10px 12px 11px;font-size:14px;line-height:1.4;box-shadow:0 10px 28px rgba(0,0,0,.5)}
+.tip.below{transform:translate(-50%,0)}
+.tip b{display:block;font-size:15px;line-height:1.25}
+.tip span{display:block;font:600 11px var(--mono);color:var(--amber);margin-top:3px}
+.tip p{margin:6px 0 0;color:var(--text2)}
+.tip a{display:inline-block;margin-top:8px;font:600 12px var(--mono);color:var(--teal)}
 
 /* DAY */
 .dayhd{padding:6px 6px 0}
@@ -621,15 +629,42 @@ function mapCard(city) {
   return `<section class="card mapc"><div class="row lbl"><span>MAP · ${esc(String(m.city).toUpperCase())}</span><span class="acts" id="geo-acts">${geoActs()}</span></div>
 <div class="sub" id="geo-state">${esc(geoText(m))}</div><div id="mapslot" data-file="${esc(m.file)}"></div></section>`;
 }
+// Each point in the map's "pois" gets an invisible tap target; a tap shows its name, date, a line about it and its guide.
 function mapEl(m) {
-  if (!mapEls[m.file]) {
-    const el = document.createElement("div"), [W, H] = m.size;
-    el.className = "mapbox"; el.id = "mapbox"; el.dataset.file = m.file; el.dataset.fresh = "1";
-    el.innerHTML = `<div class="mapin" style="width:${W}px;height:${H}px"><img src="${esc(fileUrl(m.file))}" width="${W}" height="${H}" alt="Map of ${esc(m.city)}" draggable="false"><i class="me-acc"></i><i class="me-dot"></i></div>`;
-    el.addEventListener("scroll", () => { geo.touched = Date.now(); }, { passive: true });
-    mapEls[m.file] = el;
-  }
-  return mapEls[m.file];
+  const sig = JSON.stringify(m), old = mapEls[m.file];
+  if (old?._sig === sig) return old;
+  const el = document.createElement("div"), [W, H] = m.size;
+  el.className = "mapbox"; el.id = "mapbox"; el.dataset.file = m.file; el._sig = sig;
+  if (old) { el._l = old.isConnected ? old.scrollLeft : old._l; el._t = old.isConnected ? old.scrollTop : old._t; } else el.dataset.fresh = "1";
+  const pois = (m.pois || []).map((p, i) => {
+    const q = mapXY(m, p.lat, p.lon);
+    return q.x >= 0 && q.y >= 0 && q.x <= W && q.y <= H ? `<button class="poi" data-i="${i}" style="left:${q.x.toFixed(1)}px;top:${q.y.toFixed(1)}px" aria-label="${esc(p.n)}"></button>` : "";
+  }).join("");
+  el.innerHTML = `<div class="mapin" style="width:${W}px;height:${H}px"><img src="${esc(fileUrl(m.file))}" width="${W}" height="${H}" alt="Map of ${esc(m.city)}" draggable="false">${pois}<i class="me-acc"></i><i class="me-dot"></i><div class="tip" hidden></div></div>`;
+  el.addEventListener("scroll", () => { geo.touched = Date.now(); }, { passive: true });
+  el.addEventListener("click", (e) => poiTip(m, el, e));
+  mapEls[m.file] = el;
+  return el;
+}
+function poiTip(m, el, e) {
+  const b = e.target.closest(".poi"), tip = el.querySelector(".tip");
+  if (e.target.closest(".tip")) return;
+  el.querySelector(".poi.on")?.classList.remove("on");
+  if (!b) { tip.hidden = true; return; }
+  const p = m.pois[+b.dataset.i], q = mapXY(m, p.lat, p.lon), half = 128;
+  b.classList.add("on");
+  tip.innerHTML = `<b>${esc(p.n)}</b>${p.d ? `<span>${esc(p.d)}</span>` : ""}<p>${esc(p.t)}</p>${p.g ? `<a href="${esc(fileUrl(p.g))}" target="_blank" rel="noopener">Guide ↗</a>` : ""}`;
+  const below = q.y < 170;
+  tip.classList.toggle("below", below);
+  tip.style.left = `${Math.min(Math.max(q.x, half), m.size[0] - half)}px`;
+  tip.style.top = `${below ? q.y + 24 : q.y - 24}px`;
+  tip.hidden = false;
+  // Scroll just enough to show the whole tip.
+  const r = tip.getBoundingClientRect(), box = el.getBoundingClientRect();
+  const dx = r.left < box.left + 6 ? r.left - box.left - 6 : r.right > box.right - 6 ? r.right - box.right + 6 : 0;
+  const dy = r.top < box.top + 6 ? r.top - box.top - 6 : r.bottom > box.bottom - 6 ? r.bottom - box.bottom + 6 : 0;
+  if (dx || dy) el.scrollBy({ left: dx, top: dy, behavior: "smooth" });
+  geo.touched = Date.now();
 }
 function centreMap(m, el) {
   const p = geo.fix && onMap(m, geo.fix) ? mapXY(m, geo.fix.lat, geo.fix.lon) : { x: m.size[0] / 2, y: m.size[1] / 2 };
