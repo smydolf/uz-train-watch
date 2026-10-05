@@ -616,7 +616,7 @@ function renderNow(clk) {
   }
   const day = M.days[clk.date], nn = nowNext(day, clk), city = M.stay[clk.date], w = weatherOf(city, clk.date);
   return `<div class="hd"><span>DAY ${day.n} · ${wdm(clk.date)}${clk.off !== TZ_MIN ? ` · ${utcText(clk.off)}` : ""}</span><span>${esc(city.toUpperCase())}${w ? ` ${w.max}°` : ""}</span></div>`
-    + nowCard(day, nn) + nextCard(day, nn, clk) + tonightCard(clk) + statTiles(day, nn, city, w) + guideTiles(day, clk, city);
+    + nowCard(day, nn) + nextCard(day, nn, clk) + guideTiles(day, clk, city) + tonightCard(clk) + statTiles(day, nn, city, w);
 }
 
 // Guides as tiles: the city's pages (trip.json "guides": the city guide, things to book) while you are in that city,
