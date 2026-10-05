@@ -382,8 +382,9 @@ export default {
       const name = decodeURIComponent(path.slice(7));
       const { value, metadata } = await env.STATE.getWithMetadata(`file:${name}`, "arrayBuffer");
       if (!value) return new Response("Not found", { status: 404 });
+      // no-cache, so a re-uploaded guide shows at once; the service worker still keeps the offline copy.
       return new Response(value, { headers: { "Content-Type": metadata?.type ?? "application/octet-stream",
-        "Content-Disposition": `inline; filename="${name.split("/").pop()}"`, "Cache-Control": "private, max-age=86400" } });
+        "Content-Disposition": `inline; filename="${name.split("/").pop()}"`, "Cache-Control": "private, no-cache" } });
     }
     if (path !== "/status") return new Response("Not found", { status: 404 });
     const { last, seats } = await loadState(env);
