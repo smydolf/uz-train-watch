@@ -30,8 +30,8 @@ export const MANIFEST = JSON.stringify({
 const EMERGENCY = [["General emergency", "112"], ["Police", "102"], ["Ambulance", "103"], ["Fire", "101"], ["Tourist hotline", "1173"]];
 
 // Everything the page needs in one response: the trip from KV, live seats for watched trains, weather,
-// exchange rates and the emergency numbers.
-export function appPayload(trip, state) {
+// exchange rates, the emergency numbers, BEEN THERE (KV "visits") and the last 36 hours of OwnTracks points.
+export function appPayload(trip, state, { visits = null, track = null, trackUrl = null } = {}) {
   const seats = state.seats ?? {}, trains = state.trains ?? {};
   const watch = trip.watch.map((w, i) => {
     const from = trip.legs[i].from; // station code: the watcher also stores trains of other legs on that date
@@ -50,5 +50,8 @@ export function appPayload(trip, state) {
     weather: state.weather?.days ?? {},
     rates: state.rates?.rates ?? null,
     emergency: EMERGENCY,
+    visits,
+    track: (track?.pts ?? []).filter((p) => p[0] * 1000 > Date.now() - 36 * 3600e3),
+    trackUrl,
   };
 }

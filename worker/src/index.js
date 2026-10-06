@@ -323,6 +323,88 @@ async function tryLogin(env, user, password) {
 }
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status,
   headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers } });
+const str = (v, n) => (typeof v === "string" ? v.trim().slice(0, n) : "");
+const num = (v, lim) => (typeof v === "number" && isFinite(v) && Math.abs(v) <= lim ? +v.toFixed(6) : undefined);
+const isoOf = (v) => (typeof v === "string" && !isNaN(Date.parse(v)) ? new Date(v).toISOString() : undefined);
+const metres = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lon - b.lon) * 111320 * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180));
+
+// BEEN THERE, the places we have been: KV "visits", written by the app (POST /api/visits) from every phone and
+// downloaded by scripts/pull.sh. { list: [visit], skip: [{ k, at }], quiet: [{ lat, lon, at }] }. A visit:
+// { id, name, kind?, lat?, lon?, at, until?, src: here | stay | auto | manual, osm?, stay? }. skip: questions
+// answered No ("osm:<place>" for 3 hours, "stay:<device>:<start>" for good); quiet: spots never to ask about.
+const SRCS = ["here", "stay", "auto", "manual"];
+async function loadVisits(env) {
+  return { list: [], skip: [], quiet: [], ...((await env.STATE.get("visits", "json")) ?? {}) };
+}
+function cleanVisit(v) {
+  const name = str(v?.name, 120), lat = num(v?.lat, 90), lon = num(v?.lon, 180);
+  if (!name) return null;
+  const x = { id: str(v.id, 40) || crypto.randomUUID(), name, kind: str(v.kind, 30), lat, lon, at: isoOf(v.at) ?? new Date().toISOString(),
+    until: isoOf(v.until), src: SRCS.includes(v.src) ? v.src : "manual", osm: str(v.osm, 40), stay: str(v.stay, 80) };
+  if (lat === undefined || lon === undefined) { delete x.lat; delete x.lon; }
+  return Object.fromEntries(Object.entries(x).filter(([, val]) => val !== undefined && val !== ""));
+}
+// One change per request: { op: "add", visit } | { op: "del", id } | { op: "skip", keys } | { op: "quiet", lat, lon }.
+// An add the list already has (same id or stay, or the same place within 3 hours) changes nothing, so a phone
+// can resend its queued changes, and two phones can save the same stay.
+async function apiVisits(request, env) {
+  if (request.method !== "POST") return json({ error: "Use POST." }, 405);
+  const op = await request.json().catch(() => null), v = await loadVisits(env);
+  const at = isoOf(op?.at) ?? new Date().toISOString();
+  switch (op?.op) {
+    case "add": {
+      const x = cleanVisit(op.visit);
+      if (!x) return json({ error: "A place needs a name." }, 400);
+      const dup = (y) => y.id === x.id || (x.stay && y.stay === x.stay)
+        || (x.osm && y.osm === x.osm && Math.abs(Date.parse(y.at) - Date.parse(x.at)) < 3 * 3600e3);
+      if (v.list.some(dup)) return json({ ok: true, visits: v });
+      v.list = [...v.list, x].slice(-500);
+      break;
+    }
+    case "del": v.list = v.list.filter((y) => y.id !== op.id); break;
+    case "skip": {
+      const keys = (Array.isArray(op.keys) ? op.keys : []).map((k) => str(k, 80)).filter(Boolean).slice(0, 20);
+      v.skip = [...v.skip.filter((s) => !keys.includes(s.k)), ...keys.map((k) => ({ k, at }))].slice(-400);
+      break;
+    }
+    case "quiet": {
+      const lat = num(op.lat, 90), lon = num(op.lon, 180);
+      if (lat === undefined || lon === undefined) return json({ error: "A spot needs lat and lon." }, 400);
+      v.quiet = [...v.quiet, { lat, lon, at }].slice(-100);
+      break;
+    }
+    default: return json({ error: "Unknown change." }, 400);
+  }
+  await env.STATE.put("visits", JSON.stringify(v));
+  return json({ ok: true, visits: v });
+}
+
+// Background location from OwnTracks (iOS and Android, HTTP mode), so stays show up without opening the app. Its
+// URL carries a token derived from the password, so changing the password changes it; the app shows it in TOOLS.
+// OwnTracks posts one message per request and keeps it queued until it gets a 2xx with a JSON array.
+// KV "track": { pts: [[tst, lat, lon, acc, trigger, device]], day, writes }, the last 3 days. Writes are capped at
+// TRACK_WRITES a day, so the seat watcher's 288 state writes always fit in the KV free tier's 1,000.
+const TRACK_DAYS = 3, TRACK_WRITES = 300;
+const trackToken = async (env) => (await hmac(env, "owntracks-v1")).slice(0, 32);
+async function owntracks(request, env, token) {
+  if (request.method !== "POST") return json({ error: "Use POST." }, 405);
+  if (!env.APP_PASSWORD || !(await same(token, await trackToken(env)))) return json({ error: "Unknown tracker." }, 403);
+  const body = await request.json().catch(() => null);
+  const dev = str(request.headers.get("X-Limit-D") ?? "", 24) || "phone";
+  const pts = (Array.isArray(body) ? body : [body]).filter((m) => m?._type === "location")
+    .map((m) => [Math.round(m.tst), num(m.lat, 90), num(m.lon, 180), Math.round(m.acc ?? 0), str(m.t, 2), dev])
+    .filter((p) => p[0] > 1.6e9 && p[1] !== undefined && p[2] !== undefined && p[3] <= 1000);
+  if (!pts.length) return json([]);
+  const t = (await env.STATE.get("track", "json")) ?? {}, day = new Date().toISOString().slice(0, 10);
+  const writes = t.day === day ? t.writes ?? 0 : 0;
+  const kept = (t.pts ?? []).filter((p) => p[0] > Date.now() / 1000 - TRACK_DAYS * 86400);
+  // A point close to this phone's last one in time and place adds nothing. iOS visits ("v") always count.
+  const last = kept.filter((p) => p[5] === dev).at(-1), at = (p) => ({ lat: p[1], lon: p[2] });
+  const fresh = pts.filter((p) => p[4] === "v" || !last || Math.abs(p[0] - last[0]) >= 90 || metres(at(p), at(last)) >= 30);
+  if (!fresh.length || writes >= TRACK_WRITES) return json([]);
+  await env.STATE.put("track", JSON.stringify({ pts: [...kept, ...fresh].sort((a, b) => a[0] - b[0]).slice(-4000), day, writes: writes + 1 }));
+  return json([]);
+}
 // JSON sign-in for /app: { user, password } in, { ok } or { error } out.
 async function apiLogin(request, env) {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
@@ -357,9 +439,10 @@ export default {
     }
   },
 
-  // /app is the only page (its data at /api/app, sign-in at /api/login); /files/<name> serves tickets and
-  // bookings, /status the watcher's JSON. The /app shell, its manifest and icons hold no personal data and are
-  // public (the manifest is fetched without cookies); /files/, /status and /api/app need a signed-in session.
+  // /app is the only page (its data at /api/app, sign-in at /api/login, BEEN THERE changes at /api/visits);
+  // /files/<name> serves tickets and bookings, /status the watcher's JSON. The /app shell, its manifest and icons hold
+  // no personal data and are public (the manifest is fetched without cookies); /api/owntracks/<token> takes OwnTracks
+  // points with its token; /files/, /status and the other /api/ paths need a signed-in session.
   // Old pages ("/", /login, /trip, /guide) redirect to /app, which shows the sign-in when needed.
   async fetch(request, env) {
     const url = new URL(request.url), path = url.pathname;
@@ -372,11 +455,14 @@ export default {
     if (path === "/manifest.webmanifest") return new Response(MANIFEST, { headers: { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=86400" } });
     if (ICONS[path]) return new Response(ICONS[path], { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" } });
     if (path === "/api/login") return apiLogin(request, env);
+    if (path.startsWith("/api/owntracks/")) return owntracks(request, env, path.slice(15));
     if (!(await signedIn(request, env))) return path.startsWith("/api/") ? json({ error: "Sign in first." }, 401) : toApp();
     if (path === "/api/app") {
-      const [trip, state] = await Promise.all([loadTrip(env), loadState(env)]);
-      return json(appPayload(trip, state));
+      const [trip, state, visits, track] = await Promise.all([loadTrip(env), loadState(env), loadVisits(env), env.STATE.get("track", "json")]);
+      const trackUrl = env.APP_PASSWORD ? new URL(`/api/owntracks/${await trackToken(env)}`, request.url).href : null;
+      return json(appPayload(trip, state, { visits, track, trackUrl }));
     }
+    if (path === "/api/visits") return apiVisits(request, env);
     if (path.startsWith("/files/")) {
       // Files are stored in KV as "file:<name>" with their content type in the metadata.
       const name = decodeURIComponent(path.slice(7));

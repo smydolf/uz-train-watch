@@ -6,3 +6,5 @@ state.json
 .DS_Store
 trip.json
 files/
+visits.json
+track.json

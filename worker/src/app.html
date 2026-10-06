@@ -123,6 +123,18 @@ input:focus-visible{outline:0}
 .tip span{display:block;font:600 11px var(--mono);color:var(--amber);margin-top:3px}
 .tip p{margin:6px 0 0;color:var(--text2)}
 .tip a{display:inline-block;margin-top:8px;font:600 12px var(--mono);color:var(--teal)}
+/* BEEN THERE: "Are you here?" on NOW and TRIP, the list in TRIP */
+.ask{border:1px solid rgba(45,212,191,.33);gap:8px}
+.ask .chips{margin-top:2px}
+.vadd{display:flex;gap:8px;align-items:center;background:var(--raised);border-radius:12px;padding:4px 4px 4px 12px}
+.vadd input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);font:500 16px var(--sans);padding:6px 0}
+.vadd input::placeholder{color:var(--off)}
+.vday{font:600 11px var(--mono);letter-spacing:.06em;color:var(--muted);padding-top:10px}
+.vrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;gap:10px;align-items:center;min-height:52px;padding:4px 0;border-bottom:1px solid var(--line)}
+.vrow:has(+ .vday),.vrow:has(+ .kadd){border-bottom:0}
+.vt{font:600 13px var(--mono);color:var(--muted)}
+.vn{font-size:16px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+.seg3.seg2{grid-template-columns:1fr 1fr}
 
 /* DAY */
 .dayhd{padding:6px 6px 0}
@@ -378,9 +390,13 @@ function loadStore() {
     savedAt: s?.savedAt ?? null,
     hero: s?.hero ?? null, // trip dates and cities for the sign-in screen, from the last data load
     geoOn: s?.geoOn === true, // the NOW map follows the phone's location
+    askHere: s?.askHere !== false, // BEEN THERE: ask "Are you here?" when the app opens
+    vq: Array.isArray(s?.vq) ? s.vq : [], // BEEN THERE changes not sent yet (offline)
+    devId: typeof s?.devId === "string" ? s.devId : `trip-${Math.random().toString(36).slice(2, 6)}`, // OwnTracks deviceId
   };
 }
 let store = loadStore();
+persist(); // keeps the new devId
 // One object, one key: a later POST /api/state can share it between phones (last write wins).
 function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {} }
 function save() { store.savedAt = new Date().toISOString(); persist(); }
@@ -412,7 +428,7 @@ function toggleSlip(id) {
 let data = null, M = null, lastText = "";
 let drag = null; // a stop being dragged in DAY
 const ui = { tab: "now", day: null, openDay: null, notes: new Set(), kitEdit: false, kitDraft: "", uzs: 425000, slipsOpen: false,
-  login: { user: "", pass: "", show: false, err: "", busy: false } };
+  vOther: false, vName: "", vAdd: "", login: { user: "", pass: "", show: false, err: "", busy: false } };
 
 // ---- Trip model ----
 function build(d) {
@@ -641,7 +657,7 @@ function mapEl(m) {
     return q.x >= 0 && q.y >= 0 && q.x <= W && q.y <= H ? `<button class="poi" data-i="${i}" style="left:${q.x.toFixed(1)}px;top:${q.y.toFixed(1)}px" aria-label="${esc(p.n)}"></button>` : "";
   }).join("");
   el.innerHTML = `<div class="mapin" style="width:${W}px;height:${H}px"><img src="${esc(fileUrl(m.file))}" width="${W}" height="${H}" alt="Map of ${esc(m.city)}" draggable="false">${pois}<i class="me-acc"></i><i class="me-dot"></i><div class="tip" hidden></div></div>`;
-  el.addEventListener("scroll", () => { geo.touched = Date.now(); }, { passive: true });
+  el.addEventListener("scroll", () => { if (el._at?.[0] !== el.scrollLeft || el._at?.[1] !== el.scrollTop) geo.touched = Date.now(); }, { passive: true });
   el.addEventListener("click", (e) => poiTip(m, el, e));
   mapEls[m.file] = el;
   return el;
@@ -666,9 +682,11 @@ function poiTip(m, el, e) {
   if (dx || dy) el.scrollBy({ left: dx, top: dy, behavior: "smooth" });
   geo.touched = Date.now();
 }
+// Scrolled by the app (centring, or back to where it was after a render), not by a finger, so not a touch.
+function scrollMap(el, left, top) { el.scrollLeft = left; el.scrollTop = top; el._at = [el.scrollLeft, el.scrollTop]; }
 function centreMap(m, el) {
   const p = geo.fix && onMap(m, geo.fix) ? mapXY(m, geo.fix.lat, geo.fix.lon) : { x: m.size[0] / 2, y: m.size[1] / 2 };
-  el.scrollLeft = p.x - el.clientWidth / 2; el.scrollTop = p.y - el.clientHeight / 2;
+  scrollMap(el, p.x - el.clientWidth / 2, p.y - el.clientHeight / 2);
 }
 function drawDot() {
   const el = document.getElementById("mapbox"), m = el && shownMap();
@@ -689,7 +707,7 @@ function mapAfterRender() {
   if (!m) { geoStop(); return; }
   const el = mapEl(m);
   slot.replaceWith(el);
-  if (el.dataset.fresh) { delete el.dataset.fresh; centreMap(m, el); } else { el.scrollLeft = el._l; el.scrollTop = el._t; }
+  if (el.dataset.fresh) { delete el.dataset.fresh; centreMap(m, el); } else scrollMap(el, el._l, el._t);
   drawDot();
   geoResume();
 }
@@ -701,7 +719,8 @@ function geoStop() { if (geo.watch !== null) navigator.geolocation.clearWatch(ge
 function geoResume() { if (store.geoOn && !document.hidden && ui.tab === "now" && document.getElementById("mapbox")) geoStart(); }
 function onFix(pos) {
   const { latitude: lat, longitude: lon, accuracy: acc } = pos.coords, first = !geo.fix;
-  geo.fix = { lat, lon, acc }; geo.err = "";
+  geo.fix = { lat, lon, acc, t: Date.now() }; geo.err = "";
+  if (store.askHere && here.fix && metres(here.fix, geo.fix) > 60) checkHere(); // walked on: ask about the new spot
   const m = shownMap();
   if (m && !onMap(m, geo.fix) && mapFor(M.stay[clock().date])?.file !== m.file) { render(); return; } // you are on the other city's map
   const el = document.getElementById("mapbox");
@@ -712,6 +731,276 @@ function onGeoError(e) {
   if (e.code === 1) { geo.err = "Location is blocked. Allow it in Settings → Privacy → Location Services."; store.geoOn = false; save(); geoStop(); }
   else geo.err = geo.fix ? "" : "No location fix yet. Try outside.";
   drawDot();
+}
+
+// ---- BEEN THERE: the places we have been ----
+// The list is KV "visits" (POST /api/visits), shared by both phones; a change made offline waits in store.vq and
+// goes out on the next load. Two things fill it. When the app opens (TOOLS → BEEN THERE, on by default) the phone
+// takes a location fix and asks "Are you here?" about the food and drink places within 40–80 m (OpenStreetMap).
+// And OwnTracks, once set up in TOOLS, sends the phone's location in the background (KV "track"): each stay in it
+// becomes a question too, or is saved on its own when one place is clearly the one.
+const FOOD_KIND = { restaurant: "Restaurant", cafe: "Café", bar: "Bar", pub: "Pub", fast_food: "Fast food", biergarten: "Beer garden",
+  ice_cream: "Ice cream", food_court: "Food court", nightclub: "Club", hookah_lounge: "Hookah lounge" };
+const ASK_MS = 3 * 60000, SKIP_MS = 3 * 36e5, HERE_MS = 15 * 60000, MAX_STAY_S = 4 * 3600;
+const metres = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lon - b.lon) * 111320 * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180));
+const isoMs = (ms) => new Date(ms).toISOString();
+const dayWord = (ms) => { const d = tashIso(ms).slice(0, 10), today = clock().date; return d === today ? "TODAY" : d === addDays(today, -1) ? "YESTERDAY" : wdm(d); };
+const refresh = () => { if (!M) return; if (busy()) dirty = true; else render(); };
+const here = { busy: false, at: 0, fix: null, places: null, force: false, err: "" };
+const placeCache = []; // { lat, lon, r, places: a promise of the places there }
+const stayCands = new Map(); // stay key → its places, or null while they load
+let stays = [], shownQ = null, sending = false, visitsRev = 0;
+
+// The list as the server has it, with the changes still waiting on this phone.
+function visitsNow() {
+  const s = data?.visits || {}, v = { list: [...(s.list || [])], skip: [...(s.skip || [])], quiet: [...(s.quiet || [])] };
+  for (const op of store.vq) {
+    if (op.op === "add" && !v.list.some((x) => x.id === op.visit.id || (op.visit.stay && x.stay === op.visit.stay))) v.list.push({ ...op.visit, queued: true });
+    else if (op.op === "del") v.list = v.list.filter((x) => x.id !== op.id);
+    else if (op.op === "skip") v.skip.push(...op.keys.map((k) => ({ k, at: op.at })));
+    else if (op.op === "quiet") v.quiet.push({ lat: op.lat, lon: op.lon, at: op.at });
+  }
+  return v;
+}
+// tapped: a change the user just made shows at once; else (saved on its own) it waits until nothing is under the finger.
+function visitOp(op, tapped = true) {
+  store.vq.push({ ...op, at: isoMs(Date.now()) }); persist();
+  if (tapped) render(); else refresh();
+  sendVisitOps();
+}
+const addVisit = (x, tapped) => visitOp({ op: "add", visit: { id: `v${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, ...x } }, tapped);
+async function sendVisitOps() {
+  if (sending) return;
+  sending = true;
+  try {
+    while (store.vq.length) {
+      let res = null;
+      try { res = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(store.vq[0]) }); } catch {}
+      if (!res || res.status === 401 || res.status >= 500) break; // offline or signed out: the next load sends it
+      const body = await res.json().catch(() => null);
+      if (res.ok && body?.visits && data) { data.visits = body.visits; visitsRev++; }
+      store.vq.shift(); persist(); // a 4xx is dropped: it would never go through
+    }
+  } finally { sending = false; refresh(); }
+}
+
+// OpenStreetMap places near a point, asked from the phone (the Worker's shared Cloudflare address runs into the
+// services' per-address limits): Overpass first; when it fails or has not answered in 3 seconds, Photon (komoot) and a
+// second Overpass server too. The first answer wins. [{ id, n: name, k: the amenity or tourism value, lat, lon }]
+const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"];
+const INN_KIND = ["hotel", "guest_house", "hostel", "motel", "apartment"];
+function osmPlaces(lat, lon, r) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 30000);
+  const get = async (url) => {
+    if (ctl.signal.aborted) throw new Error("answered");
+    const res = await fetch(url, { signal: ctl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  };
+  const at = `${lat.toFixed(5)},${lon.toFixed(5)}`, around = `(around:${r},${at})`;
+  const q = `[out:json][timeout:15];(nwr${around}["amenity"~"^(${Object.keys(FOOD_KIND).join("|")})$"]["name"];nwr${around}["tourism"~"^(${INN_KIND.join("|")})$"];);out center tags qt 80;`;
+  const overpass = (url) => get(`${url}?data=${encodeURIComponent(q)}`).then((d) => {
+    if (!Array.isArray(d.elements) || /error/i.test(d.remark || "")) throw new Error(`Overpass: ${d.remark || "no data"}`);
+    return d.elements.map((e) => { const t = e.tags || {}; return { id: `${e.type[0]}${e.id}`, n: t["name:en"] || t.name || "", k: t.amenity || t.tourism, lat: e.lat ?? e.center?.lat, lon: e.lon ?? e.center?.lon }; });
+  });
+  const photon = () => get(`https://photon.komoot.io/reverse?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&radius=${r / 1000}&limit=50&lang=en&osm_tag=amenity&osm_tag=tourism`)
+    .then((d) => d.features.map((f) => { const p = f.properties || {}; return { id: `${String(p.osm_type).toLowerCase()}${p.osm_id}`, n: p.name || "", k: p.osm_value, lat: f.geometry?.coordinates?.[1], lon: f.geometry?.coordinates?.[0] }; }));
+  const first = overpass(OVERPASS[0]), later = new Promise((ok) => { setTimeout(ok, 3000); first.catch(ok); });
+  return Promise.any([first, later.then(photon), later.then(() => overpass(OVERPASS[1]))])
+    .then((list) => list.filter((p) => p.lat != null && p.lon != null))
+    .finally(() => { clearTimeout(timer); ctl.abort(); });
+}
+// The places within r metres of a point: food and drink by distance, the nearest hotel, and whether a sight on the
+// city map is close (a stay there with no café around is the sight, not a question). A lookup within 20 m of an earlier
+// one reuses it.
+function nearby(lat, lon, r) {
+  const at = { lat, lon };
+  let hit = placeCache.find((c) => c.r >= r && metres(c, at) < 20);
+  if (!hit) {
+    hit = { lat, lon, r, places: osmPlaces(lat, lon, r) };
+    if (placeCache.push(hit) > 60) placeCache.shift();
+    hit.places.catch(() => placeCache.splice(placeCache.indexOf(hit), 1));
+  }
+  return hit.places.then((list) => {
+    const d = list.map((p) => ({ ...p, d: Math.round(metres(p, at)) })).filter((p) => p.d <= r + 10).sort((a, b) => a.d - b.d);
+    return { food: d.filter((p) => FOOD_KIND[p.k] && p.n), inn: d.find((p) => INN_KIND.includes(p.k)) || null,
+      sight: (M.t.maps || []).some((m) => (m.pois || []).some((p) => metres(p, at) < 50)) };
+  });
+}
+// At the hotel: one is nearer than any food place, and within 35 m.
+const atInn = (c) => !!(c.inn && c.inn.d <= 35 && (!c.food[0] || c.inn.d < c.food[0].d));
+const radius = (acc) => Math.round(Math.min(80, Math.max(40, acc)));
+
+function getFix() {
+  if (geo.fix && Date.now() - geo.fix.t < 60000) return Promise.resolve(geo.fix);
+  return new Promise((ok, fail) => navigator.geolocation.getCurrentPosition(
+    (p) => ok({ lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() }), fail,
+    { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 }));
+}
+// A location fix and the places around it: on its own at most every 3 minutes, only while the app is on screen. I'M HERE
+// (force) looks again at once and shows every place nearby, also ones answered No, or a box to type the name.
+async function checkHere(force) {
+  if (!M || document.hidden || !("geolocation" in navigator)) return;
+  if (force) { here.force = true; here.err = ""; ui.vOther = false; }
+  if (here.busy) { if (force) render(); return; } // the check under way shows as I'M HERE
+  if (!force && (!store.askHere || Date.now() - here.at < ASK_MS)) return;
+  here.busy = true; here.err = "";
+  if (force) render();
+  try {
+    const fix = await getFix();
+    here.fix = fix; here.places = null;
+    if (fix.acc > 150 && !here.force) return; // too rough to tell one door from the next
+    here.places = await nearby(fix.lat, fix.lon, radius(fix.acc));
+  } catch (e) {
+    if (e?.code === 1) { store.askHere = false; persist(); }
+    here.err = e?.code === 1 ? "Location is blocked. Allow it in Settings → Privacy → Location Services."
+      : e?.code ? "No location fix yet. Try again outside." : "Could not look up the places nearby. No connection?";
+  } finally {
+    here.at = Date.now(); here.busy = false; refresh();
+  }
+}
+const endForce = () => { here.force = false; here.err = ""; ui.vOther = false; render(); };
+
+// Stays in the OwnTracks points, per phone: a run of points within 70 m of its first one that lasts 10 minutes or more,
+// or that holds an iOS visit arrival (trigger "v"; the next "v" within 6 hours is its departure). Points rougher than
+// 150 m are left out, and a stay of over 4 hours is the hotel. Times in ms; "to" is null while it goes on.
+function findStays(pts, nowMs) {
+  const by = {}, out = [], at = (p) => ({ lat: p[1], lon: p[2] });
+  for (const p of pts) if (p[3] <= 150) (by[p[5]] ??= []).push(p);
+  for (const [dev, list] of Object.entries(by)) {
+    list.sort((a, b) => a[0] - b[0]);
+    const dep = new Map(); // arrival → its departure (null until it comes)
+    let arr = null;
+    for (const p of list.filter((p) => p[4] === "v")) {
+      if (arr && p[0] - arr[0] < 6 * 3600) { dep.set(arr, p); arr = null; } else { dep.set(p, null); arr = p; }
+    }
+    for (let i = 0; i < list.length;) {
+      let j = i + 1;
+      while (j < list.length && metres(at(list[i]), at(list[j])) <= 70) j++;
+      const run = list.slice(i, j), next = list[j], arrival = run.find((p) => dep.has(p)), from = run[0][0], last = run.at(-1)[0];
+      const end = arrival && dep.get(arrival) ? Math.max(last, dep.get(arrival)[0]) : next ? (arrival ? next[0] : last) : null;
+      if ((arrival || last - from >= 600) && (end ?? nowMs / 1000) - from <= MAX_STAY_S) {
+        out.push({ key: `stay:${dev}:${from}`, lat: run.reduce((s, p) => s + p[1], 0) / run.length, lon: run.reduce((s, p) => s + p[2], 0) / run.length,
+          acc: Math.min(...run.map((p) => p[3])), from: from * 1000, to: end == null ? null : end * 1000 });
+      }
+      i = j;
+    }
+  }
+  return out.sort((a, b) => b.from - a.from);
+}
+// Answered: the list has it (the same stay, or a place within 70 m in its time, ±30 min), it was answered No, or the
+// spot is one never to ask about.
+function answered(q, v) {
+  const from = q.from - 18e5, to = (q.to ?? Date.now()) + 18e5;
+  return v.skip.some((s) => q.key && s.k === q.key) || v.quiet.some((s) => metres(s, q) < 60)
+    || v.list.some((x) => (q.key && x.stay === q.key) || (x.lat != null && metres(x, q) < 70 && Date.parse(x.at) >= from && Date.parse(x.at) <= to));
+}
+// Looks up the places at each stay of the last 36 hours not yet answered. A stay where one place is clearly the one is
+// saved on its own: the nearest within 25 m, the next at least 25 m further, and points good to 40 m.
+async function refreshStays() {
+  if (!M) return;
+  stays = findStays(data.track || [], Date.now());
+  for (const s of stays) {
+    if (stayCands.has(s.key) || answered(s, visitsNow())) continue;
+    stayCands.set(s.key, null);
+    try {
+      const c = await nearby(s.lat, s.lon, radius(s.acc)), [a, b] = c.food;
+      stayCands.set(s.key, c);
+      if (a && a.d <= 25 && (!b || b.d - a.d >= 25) && s.acc <= 40 && !atInn(c) && !answered(s, visitsNow())) {
+        addVisit({ name: a.n, kind: a.k, lat: a.lat, lon: a.lon, osm: a.id, at: isoMs(s.from), until: s.to ? isoMs(s.to) : undefined, src: "auto", stay: s.key }, false);
+      } else refresh();
+    } catch { stayCands.delete(s.key); } // the next load tries again
+  }
+}
+// The open questions: "Are you here?" from this phone's fix, then the stays, newest first.
+function questions() {
+  const v = visitsNow(), now = Date.now(), out = [];
+  if (here.fix && here.places && (here.force || now - here.at < HERE_MS)) {
+    const q = { kind: "here", key: null, lat: here.fix.lat, lon: here.fix.lon, acc: here.fix.acc, from: now - SKIP_MS, to: now };
+    const no = new Set(v.skip.filter((s) => now - Date.parse(s.at) < SKIP_MS).map((s) => s.k));
+    const cands = here.force ? here.places.food : here.places.food.filter((p) => !no.has(`osm:${p.id}`));
+    if (here.force || (cands.length && !atInn(here.places) && !answered(q, v))) out.push({ ...q, cands });
+  }
+  for (const s of stays) {
+    const c = stayCands.get(s.key);
+    if (!c || atInn(c) || answered(s, v)) continue;
+    if (!c.food.length && (c.sight || (s.to ?? now) - s.from < 15 * 60000)) continue; // a sight on the map, or too short
+    // The same spot as the fix (still there), or as another phone's stay at that time.
+    if (out.some((q) => metres(q, s) < 70 && (q.kind === "here" ? s.to == null || now - s.to < 18e5 : s.from <= (q.to ?? now) && q.from <= (s.to ?? now)))) continue;
+    out.push({ ...s, kind: "stay", cands: c.food });
+  }
+  return out;
+}
+function answerYes(q, x) {
+  const when = q.kind === "here" ? { at: isoMs(Date.now()), src: "here" }
+    : { at: isoMs(q.from), until: q.to ? isoMs(q.to) : undefined, src: "stay", stay: q.key };
+  if (q.kind === "here") here.force = false;
+  ui.vOther = false; ui.vName = "";
+  addVisit({ ...x, ...when });
+}
+function saveOther() {
+  const name = ui.vName.trim(), q = shownQ;
+  if (name && q) answerYes(q, { name, lat: +q.lat.toFixed(6), lon: +q.lon.toFixed(6) });
+}
+// Added by name: no place on the map, so its Maps link searches the name in that day's city.
+function addByName() {
+  const name = ui.vAdd.trim();
+  if (!name) return;
+  ui.vAdd = "";
+  addVisit({ name, at: isoMs(Date.now()), src: "manual" });
+  document.getElementById("v-add")?.focus();
+}
+
+function askCard() {
+  if (here.force && (here.busy || here.err || !here.places)) {
+    return `<section class="card ask"><div class="row lbl"><span class="teal">I'M HERE</span><button class="teal" data-act="v-cancel">CANCEL</button></div>
+<div class="sub">${here.busy ? "Finding you and the places nearby…" : esc(here.err || "No location fix yet.")}</div>${here.busy ? "" : '<div class="two"><button class="btn" data-act="v-here">Try again</button></div>'}</section>`;
+  }
+  const qs = questions(), q = qs[0];
+  shownQ = q || null;
+  if (!q) return "";
+  const top = q.cands[0], more = q.cands.slice(1, 5), other = ui.vOther || !top, forced = q.kind === "here" && here.force;
+  const head = forced ? "WHERE ARE YOU?" : q.kind === "here" ? "ARE YOU HERE?" : "WERE YOU HERE?";
+  const when = q.kind === "here" ? `±${Math.max(5, Math.round(q.acc / 5) * 5)} m` : `${dayWord(q.from)} ${tashHM(q.from)}–${q.to ? tashHM(q.to) : "NOW"}`;
+  const none = q.kind === "here" ? "No café, bar or restaurant on the map right here." : "Nothing on the map here.";
+  return `<section class="card ask"><div class="row lbl"><span class="teal">${head}</span><span>${esc(when)}${qs.length > 1 ? ` · 1/${qs.length}` : ""}</span></div>
+${top ? `<div class="t22">${esc(top.n)}</div><div class="sub">${esc(FOOD_KIND[top.k])} · ${top.d} m away</div>
+<div class="two"><button class="btn pri" data-act="v-yes" data-i="0">Yes</button><button class="btn" data-act="v-no">No</button></div>` : `<div class="sub">${none} Type its name to keep it.</div>`}
+${more.length || (top && !other) ? `<div class="chips">${more.map((p, i) => `<button class="chip" data-act="v-yes" data-i="${i + 1}">${esc(p.n)} · ${p.d} m</button>`).join("")}${top && !other ? '<button class="chip" data-act="v-other">Other…</button>' : ""}</div>` : ""}
+${other ? `<div class="vadd"><input id="v-name" data-input="v-name" value="${esc(ui.vName)}" placeholder="Name of the place" enterkeyhint="done" autocomplete="off" aria-label="Name of the place"><button class="addb" data-act="v-save">SAVE</button></div>` : ""}
+<div class="row">${forced ? '<button class="reset" data-act="v-cancel">CANCEL</button>' : `<button class="reset" data-act="v-quiet">NOT A PLACE · DON'T ASK HERE</button>${top ? "" : '<button class="reset" data-act="v-no">SKIP</button>'}`}</div></section>`;
+}
+
+function beenCard(clk) {
+  const list = visitsNow().list.sort((a, b) => b.at.localeCompare(a.at)), days = new Map();
+  for (const x of list) { const d = tashIso(Date.parse(x.at)).slice(0, 10); days.set(d, [...(days.get(d) || []), x]); }
+  const row = (x, d) => {
+    const maps = x.lat != null ? gmaps(`${x.lat},${x.lon}`) : gmaps(M.stay[d] ? `${x.name}, ${M.stay[d]}` : x.name);
+    const sub = [FOOD_KIND[x.kind], x.until && `until ${tashHM(Date.parse(x.until))}`, x.src === "auto" && "saved on its own", x.queued && "not sent yet"].filter(Boolean).join(" · ");
+    return `<div class="vrow"><span class="vt">${tashHM(Date.parse(x.at))}</span><div><div class="vn">${esc(x.name)}</div>${sub ? `<div class="s12">${esc(sub)}</div>` : ""}</div>
+<a class="schip" href="${esc(maps)}" target="_blank" rel="noopener">Maps ↗</a><button class="kdel" data-act="v-del" data-id="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></div>`;
+  };
+  return `<section class="card"><div class="row lbl"><span>BEEN THERE · ${list.length}</span><button class="teal" data-act="v-here">I'M HERE</button></div>
+${list.length ? [...days].map(([d, xs]) => `<div class="vday">${wdm(d)}${d === clk.date ? " · TODAY" : ""}</div>${xs.map((x) => row(x, d)).join("")}`).join("")
+    : `<div class="s13">The cafés, bars and restaurants you go to, on both phones. When you open the app near one, NOW asks "Are you here?". I'M HERE adds where you are now.</div>`}
+<div class="kadd"><input id="v-add" data-input="v-add" value="${esc(ui.vAdd)}" placeholder="Add a place by name…" enterkeyhint="done" autocomplete="off" aria-label="New place"><button class="addb" data-act="v-add">ADD</button></div></section>`;
+}
+
+// TOOLS: asking on open, and OwnTracks for the background. Set up opens OwnTracks with its settings (HTTP mode to this
+// Worker, the battery-saving "significant changes" mode with iOS visits); the URL's token is in /api/app.
+function beenTools() {
+  const last = {};
+  for (const p of data.track || []) last[p[5]] = Math.max(last[p[5]] || 0, p[0]);
+  const t = Math.max(0, ...Object.values(last)), n = Object.keys(last).length;
+  const cfg = data.trackUrl && `owntracks:///config?inline=${encodeURIComponent(btoa(JSON.stringify({ _type: "configuration", mode: 3, url: data.trackUrl,
+    auth: false, monitoring: 1, deviceId: store.devId, tid: store.devId.slice(-2).toUpperCase() })))}`;
+  return `<section class="card"><div class="row lbl"><span>BEEN THERE</span><span>${store.askHere ? "ASKS ON OPEN" : "OFF"}</span></div>
+<div class="seg3 seg2">${[[true, "ASK ON OPEN"], [false, "OFF"]].map(([on, l]) => `<button class="${store.askHere === on ? "on" : ""}" data-act="ask" data-on="${on ? 1 : 0}" aria-pressed="${store.askHere === on}">${l}</button>`).join("")}</div>
+<div class="s13">When you open the app near a café, bar or restaurant, NOW asks "Are you here?". Yes adds it to BEEN THERE in TRIP, on both phones. The places come from OpenStreetMap; a missing one can be typed in.</div>
+<div class="lbl4" style="margin-top:10px">IN THE BACKGROUND · OWNTRACKS</div>
+<div class="sub">${t ? `Last point ${dayWord(t * 1000).toLowerCase()} ${tashHM(t * 1000)}${n > 1 ? ` · ${n} phones` : ""}` : "Not set up on any phone yet."}</div>
+${cfg ? `<div class="two"><a class="btn2" href="https://apps.apple.com/app/id692424691" target="_blank" rel="noopener">1 · Install ↗</a><a class="btn2 teal" href="${esc(cfg)}">2 · Set up</a></div>` : ""}
+<div class="s13">For the places where nobody opens the app. Install OwnTracks (free), tap Set up, and allow its location "Always": it sends this phone's location here in the background, in the battery-saving mode. Each stop of 10 minutes or more becomes a question on NOW, or is saved on its own when one place is clearly the one.</div></section>`;
 }
 
 // ---- Render ----
@@ -756,7 +1045,7 @@ function renderNow(clk) {
   }
   const day = M.days[clk.date], nn = nowNext(day, clk), city = M.stay[clk.date], w = weatherOf(city, clk.date);
   return `<div class="hd"><span>DAY ${day.n} · ${wdm(clk.date)}${clk.off !== TZ_MIN ? ` · ${utcText(clk.off)}` : ""}</span><span>${esc(city.toUpperCase())}${w ? ` ${w.max}°` : ""}</span></div>`
-    + nowCard(day, nn) + nextCard(day, nn, clk) + guideTiles(day, clk, city) + mapCard(city) + tonightCard(clk) + statTiles(day, nn, city, w);
+    + askCard() + nowCard(day, nn) + nextCard(day, nn, clk) + guideTiles(day, clk, city) + mapCard(city) + tonightCard(clk) + statTiles(day, nn, city, w);
 }
 
 // Guides as tiles, while you are in a city: its guide (trip.json "guides"), then the guides linked from today's open
@@ -905,6 +1194,7 @@ function renderTrip(clk) {
 <div class="bar px6">${M.segments.map((s) => `<i style="flex:${s.days};background:${color(s.city)}"></i>`).join("")}</div>
 ${warn.length ? warnCard(warn) : ""}
 <section class="card days"><div class="lbl"><span>DAYS</span><span>TAP FOR PLAN</span></div>${M.dates.map((d) => tripDay(d, clk)).join("")}</section>
+${askCard()}${beenCard(clk)}
 ${trains ? `<div class="lbl sec">${t.bookings.some(isFlight) ? "Trains &amp; flights" : "Trains"}</div>${trains}` : ""}
 <div class="lbl sec">Hotels</div>${hotelList()}
 ${papers()}`;
@@ -1022,7 +1312,7 @@ function renderTools(clk) {
 <section class="card"><div class="row lbl"><span>TODAY'S KIT · ${done}/${items.length}</span><button class="teal" data-act="kit-edit">${ui.kitEdit ? "DONE" : "EDIT"}</button></div>${kit}
 <div class="kadd"><input id="kit-draft" data-input="kit-draft" value="${esc(ui.kitDraft)}" placeholder="Add item…" enterkeyhint="done" autocomplete="off" aria-label="New item"><button class="addb" data-act="kit-add">ADD</button></div>
 <div class="saved" id="kit-saved">${savedNote()}</div></section>
-${sosTiles()}${insuranceCards()}${driverCard(clk)}
+${sosTiles()}${insuranceCards()}${driverCard(clk)}${beenTools()}
 <section class="card"><div class="row lbl"><span>NAVIGATION</span><span>${navBottom() ? "BOTTOM TABS" : "TOP TABS"}</span></div>
 <div class="seg3">${[["auto", "AUTO"], ["top", "TOP"], ["bottom", "BOTTOM"]].map(([m, l]) => `<button class="${store.navMode === m ? "on" : ""}" data-act="nav" data-mode="${m}" aria-pressed="${store.navMode === m}">${l}</button>`).join("")}</div>
 <div class="s13">Auto: bottom tabs when you open the app from the Home Screen, top tabs in Safari.</div></section>
@@ -1127,13 +1417,18 @@ async function loadData(show) {
     if (!data) renderMessage(res ? "Something went wrong" : "No connection", res ? `The server answered ${res.status}. Try again in a minute.` : "Open the app once with a connection. After that it works offline.");
     return;
   }
-  const text = await res.text();
-  if (data && text === lastText) return;
-  lastText = text; data = JSON.parse(text); M = build(data);
-  applyTripKit(data.trip.kit);
-  if (data.trip.start) { store.hero = { start: data.trip.start, end: data.trip.end, segments: M.segments }; persist(); }
-  if (show || !busy()) render(); else dirty = true;
-  precacheFiles();
+  const rev = visitsRev, text = await res.text();
+  if (!data || text !== lastText) {
+    const kept = data?.visits;
+    lastText = text; data = JSON.parse(text);
+    if (rev !== visitsRev && kept) data.visits = kept; // a BEEN THERE change landed after this request left: keep its answer
+    M = build(data);
+    applyTripKit(data.trip.kit);
+    if (data.trip.start) { store.hero = { start: data.trip.start, end: data.trip.end, segments: M.segments }; persist(); }
+    if (show || !busy()) render(); else dirty = true;
+    precacheFiles();
+  }
+  sendVisitOps(); refreshStays(); checkHere();
 }
 
 // Re-render once a minute so Now and Next move on; never while the user is typing.
@@ -1190,6 +1485,22 @@ document.addEventListener("click", (e) => {
       break;
     }
     case "geo-off": store.geoOn = false; save(); geoStop(); geo.fix = null; geo.err = ""; drawDot(); break;
+    case "v-yes": { const p = shownQ?.cands[+el.dataset.i]; if (p) answerYes(shownQ, { name: p.n, kind: p.k, lat: p.lat, lon: p.lon, osm: p.id }); break; }
+    case "v-no": {
+      const q = shownQ;
+      if (!q) break;
+      if (q.kind === "here" && here.force) endForce();
+      else visitOp({ op: "skip", keys: q.kind === "here" ? q.cands.slice(0, 5).map((p) => `osm:${p.id}`) : [q.key] });
+      break;
+    }
+    case "v-other": ui.vOther = true; render(); document.getElementById("v-name")?.focus(); break;
+    case "v-save": saveOther(); break;
+    case "v-quiet": if (shownQ) visitOp({ op: "quiet", lat: +shownQ.lat.toFixed(6), lon: +shownQ.lon.toFixed(6) }); break;
+    case "v-here": checkHere(true); break;
+    case "v-cancel": endForce(); break;
+    case "v-del": { const x = visitsNow().list.find((x) => x.id === id); if (x && confirm(`Remove ${x.name} from BEEN THERE?`)) visitOp({ op: "del", id }); break; }
+    case "v-add": addByName(); break;
+    case "ask": store.askHere = el.dataset.on === "1"; persist(); if (store.askHere) { here.at = 0; checkHere(); } render(); break;
   }
 });
 
@@ -1217,6 +1528,8 @@ document.addEventListener("input", (e) => {
       break;
     }
     case "kit-draft": ui.kitDraft = el.value; break;
+    case "v-name": ui.vName = el.value; break;
+    case "v-add": ui.vAdd = el.value; break;
     case "lg":
       if (ui.login.err) {
         ui.login.err = "";
@@ -1229,6 +1542,8 @@ document.addEventListener("input", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   if (e.target.id === "kit-draft") { e.preventDefault(); addKit(); }
+  else if (e.target.id === "v-name") { e.preventDefault(); saveOther(); }
+  else if (e.target.id === "v-add") { e.preventDefault(); addByName(); }
   else if (e.target.dataset?.input === "kit-rename") { e.preventDefault(); e.target.blur(); }
 });
 document.addEventListener("submit", (e) => { if (e.target.id === "login") { e.preventDefault(); submitLogin(); } });

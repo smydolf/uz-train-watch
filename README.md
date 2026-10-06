@@ -6,11 +6,12 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
   Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats).
 - **/app**: the phone app, with 4 tabs. `/` and the old `/trip` and `/guide` links open it.
   - **NOW** shows what to do now and next, the guides as tiles (the city guide first, then the next stops' guides),
-    the city map with a "you are here" dot, tonight's train or hotel, and the stops left today.
+    the city map with a "you are here" dot, tonight's train or hotel, and the stops left today. Near a café, bar or
+    restaurant it asks "Are you here?" (see BEEN THERE below).
   - **DAY** shows one day as a route line, with Maps links, Done and Skip. Drag a stop by its grip to reorder the day.
-  - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
+  - **TRIP** shows the whole journey, with computed warnings, BEEN THERE (the places we have been), trains, hotels and slips.
   - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
-    in Russian for the taxi driver, and the travel insurance.
+    in Russian for the taxi driver, the travel insurance, and the BEEN THERE settings.
 The app is behind a password sign-in (one account) and works offline after one visit.
 
 ## The app (/app)
@@ -24,8 +25,8 @@ The app is behind a password sign-in (one account) and works offline after one v
 - Reordering keeps the day's time slots where they are and moves the stops through them, so a stop dragged to the top
   takes the first time. Trains, events and stops without a time stay put. A stop's `leg` is hidden once the stop after it
   changes. RESET ORDER in DAY goes back to the trip.json order. On a computer, the arrow keys on a grip move it too.
-- Kit items, done, skipped and reordered stops and the navigation setting are kept on each phone, in `localStorage` key
-  `tripagent.uz.v1`. The kit starts from `kit` in `trip.json` when it is there. Registration-slip ticks are kept under `uz-checks`.
+- Kit items, done, skipped and reordered stops, the navigation setting, the BEEN THERE switch and its unsent changes are kept
+  on each phone, in `localStorage` key `tripagent.uz.v1`. The kit starts from `kit` in `trip.json` when it is there. Registration-slip ticks are kept under `uz-checks`.
 - Optional fields in `trip.json` that the app uses (see `trip.example.json`):
   - on plan items: `kind` (move, food, sight, train, hotel or note; else taken from `tag`), `map`, `leg`
     (transport to the next stop, for example `Taxi 4 km · 10 min`), `book`, `links` and `id` (a stable id
@@ -57,6 +58,27 @@ The app is behind a password sign-in (one account) and works offline after one v
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
     clock until the day ends there. Every other day is in Tashkent time.
 
+## BEEN THERE (the places we have been)
+
+A list of the cafés, bars and restaurants we went to, in TRIP, shared by both phones (KV `visits`).
+
+- **When the app opens** (TOOLS → BEEN THERE → ASK ON OPEN, on by default), the phone takes a location fix and looks up
+  the food and drink places within 40–80 m in OpenStreetMap. NOW then asks "Are you here?" about the nearest, with the
+  others as chips, Other… to type a name, and NOT A PLACE (never ask about this spot again, for the hotel). No hides those
+  places for 3 hours. It checks again at most every 3 minutes while the app is open, and when you walk 60 m on with the
+  map on. Nothing is asked at a hotel (one nearer than any café and within 35 m), or about a place already in the list.
+- **I'M HERE** in TRIP looks again at once and shows every place nearby; the box under the list adds a place by name.
+- The phone asks OpenStreetMap itself (Overpass, then Photon and a second Overpass server after 3 seconds), since the
+  Worker's shared Cloudflare address runs into their per-address limits. OSM does not have every place: type it in.
+- **In the background**, with [OwnTracks](https://apps.apple.com/app/id692424691) (free): TOOLS → 1 · Install, then
+  2 · Set up, which opens OwnTracks with its settings (HTTP mode to `/api/owntracks/<token>`, the battery-saving
+  "significant changes" mode, which reports iOS visits), and allow it location "Always". Its points go to KV `track`
+  (3 days, at most 300 writes a day, so the seat watcher's state always fits in the KV free tier). The app finds the
+  stays in them: 10 minutes or more within 70 m, or an iOS visit. A stay where one place is clearly the one (the
+  nearest within 25 m, the next 25 m further, points good to 40 m) is saved on its own ("saved on its own" in the list);
+  any other stay of 15 minutes or more becomes a "Were you here?" question on NOW. The token is derived from
+  `APP_PASSWORD`: after changing the password, tap Set up again.
+
 ## Private data
 
 No personal data is in this repo. It lives in the Worker's KV namespace:
@@ -66,6 +88,8 @@ No personal data is in this repo. It lives in the Worker's KV namespace:
 | `trip` | bookings, hotels, day plan, watched trains, registration slips | local `trip.json` (git-ignored) |
 | `file:<path>` | ticket PDFs, booking confirmations, sight guides (HTML) | local `files/` folder (git-ignored) |
 | `state` | seat history, alert state, weather cache | written by the Worker |
+| `visits` | BEEN THERE: the places, questions answered No, spots never to ask about | written by the app |
+| `track` | OwnTracks points of the last 3 days | written by OwnTracks |
 
 `trip.example.json` shows the format. After editing `trip.json` or adding files, run:
 
@@ -73,7 +97,7 @@ No personal data is in this repo. It lives in the Worker's KV namespace:
 scripts/upload.sh
 ```
 
-To get the live data on a new machine (it overwrites the local `trip.json` and `files/`):
+To get the live data on a new machine (it overwrites the local `trip.json`, `visits.json`, `track.json` and `files/`):
 
 ```bash
 scripts/pull.sh
