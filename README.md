@@ -6,8 +6,7 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
   Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats).
 - **/app**: the phone app, with 4 tabs. `/` and the old `/trip` and `/guide` links open it.
   - **NOW** shows what to do now and next, the guides as tiles (the city guide first, then the next stops' guides),
-    the city map with a "you are here" dot and a filter for its points (for example the Biennale venues), tonight's
-    train or hotel, and the stops left today.
+    the city map with a "you are here" dot, tonight's train or hotel, and the stops left today.
   - **DAY** shows one day as a route line, with Maps links, Done and Skip. Drag a stop by its grip to reorder the day.
   - **TRIP** shows the whole journey, with computed warnings, trains, hotels and slips.
   - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
@@ -25,9 +24,8 @@ The app is behind a password sign-in (one account) and works offline after one v
 - Reordering keeps the day's time slots where they are and moves the stops through them, so a stop dragged to the top
   takes the first time. Trains, events and stops without a time stay put. A stop's `leg` is hidden once the stop after it
   changes. RESET ORDER in DAY goes back to the trip.json order. On a computer, the arrow keys on a grip move it too.
-- Kit items, done, skipped and reordered stops, the navigation setting and the map filter are kept on each phone, in
-  `localStorage` key `tripagent.uz.v1`. The kit starts from `kit` in `trip.json` when it is there. Registration-slip
-  ticks are kept under `uz-checks`.
+- Kit items, done, skipped and reordered stops and the navigation setting are kept on each phone, in `localStorage` key
+  `tripagent.uz.v1`. The kit starts from `kit` in `trip.json` when it is there. Registration-slip ticks are kept under `uz-checks`.
 - Optional fields in `trip.json` that the app uses (see `trip.example.json`):
   - on plan items: `kind` (move, food, sight, train, hotel or note; else taken from `tag`), `map`, `leg`
     (transport to the next stop, for example `Taxi 4 km · 10 min`), `book`, `links` and `id` (a stable id
@@ -54,12 +52,7 @@ The app is behind a password sign-in (one account) and works offline after one v
     NOW shows the map you are on (else today's city's); LOCATE starts the location watch, which runs only while NOW is
     on screen and is remembered on the phone. `pois` (optional) are the points you can tap for a note:
     `[{ "n": "Labi-Hauz", "d": "1620", "t": "One line about it.", "lat": 39.7732, "lon": 64.4206, "g": "guides/labi-hauz.html" }]`
-    (`g`, the guide it links to, is optional). The SVG draws these points itself; a point with a category, for example
-    `"c": "Biennale"`, is not in the SVG, so the app draws it as a numbered pin. A map with categories gets a filter
-    (ALL, SIGHTS for the points without one, or one category): a category dims the SVG and lists its points under the
-    map. `cats` (optional) gives a category its pin colour and a note shown under that list, for example
-    `{ "Biennale": { "color": "#f472b6", "note": "Dates, where it runs." } }`. The SVGs carry their own styles, since the
-    app shows them as images;
+    (`g`, the guide it links to, is optional). The SVGs carry their own styles, since the app shows them as images;
   - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
     clock until the day ends there. Every other day is in Tashkent time.
