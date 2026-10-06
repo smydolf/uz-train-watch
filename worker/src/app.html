@@ -117,6 +117,15 @@ input:focus-visible{outline:0}
 .me-acc{background:rgba(47,128,237,.14);border:1.5px solid rgba(47,128,237,.45)}
 .poi{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border:0;padding:0;border-radius:50%;background:none;cursor:pointer}
 .poi:active,.poi.on{background:rgba(255,255,255,.14)}
+.poi[hidden]{display:none}
+.pin{display:flex;align-items:center;justify-content:center}
+.pin b{width:26px;height:26px;border-radius:50%;background:var(--c);border:3px solid #1a2233;display:flex;align-items:center;justify-content:center;font:700 12px var(--mono);color:#1a2233}
+.mapin img{transition:opacity .2s}
+.mapbox.dim .mapin img{opacity:.4}
+.mapc .seg3{margin:2px 0 0}
+.mlist{display:flex;flex-wrap:wrap;gap:6px}
+.mlist button{display:flex;align-items:center;gap:7px;font:600 12px var(--mono);background:var(--raised);padding:7px 10px 7px 7px;border-radius:9px}
+.mlist i{width:20px;height:20px;border-radius:50%;background:var(--c);color:#1a2233;font:700 11px/20px var(--mono);font-style:normal;text-align:center}
 .tip{position:absolute;z-index:2;width:240px;transform:translate(-50%,-100%);background:var(--raised);color:var(--text);border:1px solid var(--dim);border-radius:14px;padding:10px 12px 11px;font-size:14px;line-height:1.4;box-shadow:0 10px 28px rgba(0,0,0,.5)}
 .tip.below{transform:translate(-50%,0)}
 .tip b{display:block;font-size:15px;line-height:1.25}
@@ -378,6 +387,7 @@ function loadStore() {
     savedAt: s?.savedAt ?? null,
     hero: s?.hero ?? null, // trip dates and cities for the sign-in screen, from the last data load
     geoOn: s?.geoOn === true, // the NOW map follows the phone's location
+    mapCat: typeof s?.mapCat === "string" ? s.mapCat : "all", // the NOW map's filter: "all", "sights" or a category
   };
 }
 let store = loadStore();
@@ -623,32 +633,58 @@ function geoText(m) {
   return `You are the blue dot · ±${geo.fix.acc < 1000 ? `${Math.max(5, Math.round(geo.fix.acc / 5) * 5)} m` : `${(geo.fix.acc / 1000).toFixed(1)} km`}`;
 }
 const geoActs = () => (store.geoOn ? '<button class="teal" data-act="geo">CENTER</button><button class="teal" data-act="geo-off">OFF</button>' : '<button class="teal" data-act="geo">LOCATE</button>');
+// Points with a category ("c", for example "Biennale") are not drawn in the SVG: the app draws them as numbered pins in
+// the category's colour ("cats" on the map, else one from CAT_COLORS). A map with categories gets a filter: ALL, SIGHTS
+// (the SVG's own points) or one category, which dims the SVG and lists that category's points under the map.
+const CAT_COLORS = ["#f472b6", "#a78bfa", "#fb923c"];
+const mapCats = (m) => [...new Set((m.pois || []).map((p) => p.c).filter(Boolean))]
+  .map((name, i) => ({ name, color: m.cats?.[name]?.color || CAT_COLORS[i % CAT_COLORS.length], note: m.cats?.[name]?.note || "" }));
+const mapFilter = (m) => (store.mapCat === "sights" || mapCats(m).some((c) => c.name === store.mapCat) ? store.mapCat : "all");
+const shownBy = (f, p) => f === "all" || (f === "sights" ? !p.c : p.c === f);
 function mapCard(city) {
   const m = mapFor(city);
   if (!m) return "";
+  const cats = mapCats(m), f = mapFilter(m), cat = cats.find((c) => c.name === f);
+  const opts = [["all", "ALL"], ["sights", "SIGHTS"], ...cats.map((c) => [c.name, c.name.toUpperCase()])];
+  const seg = cats.length ? `<div class="seg3" style="grid-template-columns:repeat(${opts.length},1fr)">${opts.map(([v, l]) =>
+    `<button class="${f === v ? "on" : ""}" data-act="map-cat" data-id="${esc(v)}" aria-pressed="${f === v}">${esc(l)}</button>`).join("")}</div>` : "";
+  let n = 0;
+  const list = cat ? `<div class="mlist" style="--c:${esc(cat.color)}">${m.pois.map((p, i) => (p.c === cat.name
+    ? `<button data-act="map-poi" data-id="${i}"><i>${++n}</i>${esc(p.n)}</button>` : "")).join("")}</div>${cat.note ? `<div class="sub">${esc(cat.note)}</div>` : ""}` : "";
   return `<section class="card mapc"><div class="row lbl"><span>MAP · ${esc(String(m.city).toUpperCase())}</span><span class="acts" id="geo-acts">${geoActs()}</span></div>
-<div class="sub" id="geo-state">${esc(geoText(m))}</div><div id="mapslot" data-file="${esc(m.file)}"></div></section>`;
+<div class="sub" id="geo-state">${esc(geoText(m))}</div>${seg}<div id="mapslot" data-file="${esc(m.file)}"></div>${list}</section>`;
 }
-// Each point in the map's "pois" gets an invisible tap target; a tap shows its name, date, a line about it and its guide.
+// Each point in the map's "pois" gets a tap target (invisible for the SVG's own points, a pin for a category's);
+// a tap shows its name, date, a line about it and its guide.
 function mapEl(m) {
   const sig = JSON.stringify(m), old = mapEls[m.file];
   if (old?._sig === sig) return old;
   const el = document.createElement("div"), [W, H] = m.size;
   el.className = "mapbox"; el.id = "mapbox"; el.dataset.file = m.file; el._sig = sig;
   if (old) { el._l = old.isConnected ? old.scrollLeft : old._l; el._t = old.isConnected ? old.scrollTop : old._t; } else el.dataset.fresh = "1";
+  const color = Object.fromEntries(mapCats(m).map((c) => [c.name, c.color])), num = {};
   const pois = (m.pois || []).map((p, i) => {
-    const q = mapXY(m, p.lat, p.lon);
-    return q.x >= 0 && q.y >= 0 && q.x <= W && q.y <= H ? `<button class="poi" data-i="${i}" style="left:${q.x.toFixed(1)}px;top:${q.y.toFixed(1)}px" aria-label="${esc(p.n)}"></button>` : "";
+    const q = mapXY(m, p.lat, p.lon), pos = `left:${q.x.toFixed(1)}px;top:${q.y.toFixed(1)}px`;
+    if (p.c) num[p.c] = (num[p.c] || 0) + 1; // numbered like the list under the map, off-map points included
+    if (!(q.x >= 0 && q.y >= 0 && q.x <= W && q.y <= H)) return "";
+    if (!p.c) return `<button class="poi" data-i="${i}" style="${pos}" aria-label="${esc(p.n)}"></button>`;
+    return `<button class="poi pin" data-i="${i}" style="${pos};--c:${esc(color[p.c])}" aria-label="${esc(p.n)}"><b>${num[p.c]}</b></button>`;
   }).join("");
   el.innerHTML = `<div class="mapin" style="width:${W}px;height:${H}px"><img src="${esc(fileUrl(m.file))}" width="${W}" height="${H}" alt="Map of ${esc(m.city)}" draggable="false">${pois}<i class="me-acc"></i><i class="me-dot"></i><div class="tip" hidden></div></div>`;
   el.addEventListener("scroll", () => { geo.touched = Date.now(); }, { passive: true });
-  el.addEventListener("click", (e) => poiTip(m, el, e));
+  el.addEventListener("click", (e) => { if (!e.target.closest(".tip")) poiTip(m, el, e.target.closest(".poi")); });
   mapEls[m.file] = el;
   return el;
 }
-function poiTip(m, el, e) {
-  const b = e.target.closest(".poi"), tip = el.querySelector(".tip");
-  if (e.target.closest(".tip")) return;
+// The filter shows or hides the tap targets and pins, and dims the SVG when it shows one category.
+function filterMap(m, el) {
+  const f = mapFilter(m);
+  el.classList.toggle("dim", f !== "all" && f !== "sights");
+  for (const b of el.querySelectorAll(".poi")) b.hidden = !shownBy(f, m.pois[+b.dataset.i]);
+  if (el.querySelector(".poi.on")?.hidden) poiTip(m, el, null);
+}
+function poiTip(m, el, b) {
+  const tip = el.querySelector(".tip");
   el.querySelector(".poi.on")?.classList.remove("on");
   if (!b) { tip.hidden = true; return; }
   const p = m.pois[+b.dataset.i], q = mapXY(m, p.lat, p.lon), half = 128;
@@ -666,8 +702,16 @@ function poiTip(m, el, e) {
   if (dx || dy) el.scrollBy({ left: dx, top: dy, behavior: "smooth" });
   geo.touched = Date.now();
 }
-function centreMap(m, el) {
-  const p = geo.fix && onMap(m, geo.fix) ? mapXY(m, geo.fix.lat, geo.fix.lon) : { x: m.size[0] / 2, y: m.size[1] / 2 };
+// The middle of the points of the category the filter shows, else null.
+function catCentre(m) {
+  const f = mapFilter(m), pts = (m.pois || []).filter((p) => p.c === f && onMap(m, p)).map((p) => mapXY(m, p.lat, p.lon));
+  if (!pts.length) return null;
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+}
+// Centre on p, else on you, else on the category the filter shows, else on the map's middle.
+function centreMap(m, el, p) {
+  p ||= geo.fix && onMap(m, geo.fix) ? mapXY(m, geo.fix.lat, geo.fix.lon) : catCentre(m) || { x: m.size[0] / 2, y: m.size[1] / 2 };
   el.scrollLeft = p.x - el.clientWidth / 2; el.scrollTop = p.y - el.clientHeight / 2;
 }
 function drawDot() {
@@ -689,6 +733,7 @@ function mapAfterRender() {
   if (!m) { geoStop(); return; }
   const el = mapEl(m);
   slot.replaceWith(el);
+  filterMap(m, el);
   if (el.dataset.fresh) { delete el.dataset.fresh; centreMap(m, el); } else { el.scrollLeft = el._l; el.scrollTop = el._t; }
   drawDot();
   geoResume();
@@ -1190,6 +1235,17 @@ document.addEventListener("click", (e) => {
       break;
     }
     case "geo-off": store.geoOn = false; save(); geoStop(); geo.fix = null; geo.err = ""; drawDot(); break;
+    case "map-cat": {
+      store.mapCat = id; save(); render();
+      const m = shownMap(), el = document.getElementById("mapbox"), p = m && el && catCentre(m);
+      if (p) centreMap(m, el, p);
+      break;
+    }
+    case "map-poi": {
+      const m = shownMap(), el = document.getElementById("mapbox");
+      if (m && el) poiTip(m, el, el.querySelector(`.poi[data-i="${+id}"]`));
+      break;
+    }
   }
 });
 
