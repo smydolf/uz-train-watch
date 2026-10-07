@@ -1037,7 +1037,7 @@ function beenTools() {
 <div class="sub">${t ? `Last point ${dayWord(t * 1000).toLowerCase()} ${tashHM(t * 1000)}${n > 1 ? ` · ${n} phones` : ""}` : "Not set up on any phone yet."}</div>
 ${data.trackUrl ? `<div class="two"><a class="btn2" href="https://apps.apple.com/app/id692424691" target="_blank" rel="noopener">1 · Install ↗</a><button class="btn2 teal" data-act="copy-track">${ui.copied ? "Copied ✓" : "2 · Copy address"}</button></div>
 <div class="turl" id="track-url">${esc(data.trackUrl)}</div>` : ""}
-<div class="s13">For the places where nobody opens the app. Install OwnTracks (free). In OwnTracks tap ⓘ, then Settings: set Mode to HTTP, paste the address into URL and go back. Allow its location "Always" and leave it on Significant, which uses little battery. Each stop of 5 minutes or more then becomes a question on NOW, or is saved on its own when one place is clearly the one.</div></section>`;
+<div class="s13">For the places where nobody opens the app. Install OwnTracks (free). In OwnTracks tap ⓘ, then Settings: set Mode to HTTP, paste the address into URL and go back. Allow its location "Always". For your routes too: add a region named +follow, set adapt 5 and downgrade 20 in Settings, and choose Move; it drops to Significant while you sit still. Each stop of 5 minutes or more becomes a question on NOW, or is saved on its own when one place is clearly the one.</div></section>`;
 }
 
 // ---- Render ----

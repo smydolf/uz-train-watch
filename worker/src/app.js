@@ -51,7 +51,7 @@ export function appPayload(trip, state, { visits = null, track = null, trackUrl 
     rates: state.rates?.rates ?? null,
     emergency: EMERGENCY,
     visits,
-    track: (track?.pts ?? []).filter((p) => p[0] * 1000 > Date.now() - 36 * 3600e3),
+    track: (track?.pts ?? []).filter((p) => p[0] * 1000 > Date.now() - 36 * 3600e3).sort((a, b) => a[0] - b[0]),
     trackUrl,
   };
 }

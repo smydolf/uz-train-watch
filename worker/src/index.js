@@ -379,13 +379,25 @@ async function apiVisits(request, env) {
   return json({ ok: true, visits: v });
 }
 
-// Background location from OwnTracks (iOS and Android, HTTP mode), so stays show up without opening the app. Its
-// URL carries a token derived from the password, so changing the password changes it; the app shows it in TOOLS.
-// OwnTracks posts one message per request and keeps it queued until it gets a 2xx with a JSON array.
-// KV "track": { pts: [[tst, lat, lon, acc, trigger, device]], day, writes }, the last 3 days. Writes are capped at
-// TRACK_WRITES a day, so the seat watcher's 288 state writes always fit in the KV free tier's 1,000.
-const TRACK_DAYS = 3, TRACK_WRITES = 300;
+// Background location from OwnTracks (iOS and Android, HTTP mode): stays for BEEN THERE, and the routes for a map of the
+// trip afterwards. Its URL carries a token derived from the password, so changing the password changes it; the app shows
+// it in TOOLS. OwnTracks posts one message per request and keeps it queued until it gets a 2xx with a JSON array.
+// KV "track:<UTC day it arrived>": { pts: [[tst, lat, lon, acc, trigger, device]], writes }, kept TRACK_KEEP_DAYS days so
+// the whole trip can be drawn (scripts/pull.sh merges them into track.json). Writes are capped at TRACK_WRITES a day, so
+// the seat watcher's 288 state writes always fit in the KV free tier's 1,000.
+const TRACK_WRITES = 500, TRACK_KEEP_DAYS = 90;
+const trackKey = (day) => `track:${day}`;
 const trackToken = async (env) => (await hmac(env, "owntracks-v1")).slice(0, 32);
+const pt = (p) => ({ lat: p[1], lon: p[2] });
+// Kept, against this phone's last kept point: iOS visits, manual sends and region events always; standing still (within
+// 30 m) one point in 4 minutes, enough to see a 5-minute stop; on foot every point 20 s apart; faster than 30 km/h (a
+// train, a taxi) one point in 2 minutes, enough for its line on a map. A late point, older than the last, fills a gap.
+function keepPoint(p, last) {
+  if (!last || ["v", "u", "c", "C"].includes(p[4]) || p[0] < last[0]) return true;
+  const dt = p[0] - last[0], d = metres(pt(p), pt(last));
+  if (d < 30) return dt >= 240;
+  return d / Math.max(dt, 1) > 8.3 ? dt >= 120 : dt >= 20;
+}
 async function owntracks(request, env, token) {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   if (!env.APP_PASSWORD || !(await same(token, await trackToken(env)))) return json({ error: "Unknown tracker." }, 403);
@@ -393,18 +405,32 @@ async function owntracks(request, env, token) {
   const dev = str(request.headers.get("X-Limit-D") ?? "", 24) || "phone";
   const pts = (Array.isArray(body) ? body : [body]).filter((m) => m?._type === "location")
     .map((m) => [Math.round(m.tst), num(m.lat, 90), num(m.lon, 180), Math.round(m.acc ?? 0), str(m.t, 2), dev])
-    .filter((p) => p[0] > 1.6e9 && p[1] !== undefined && p[2] !== undefined && p[3] <= 1000);
+    .filter((p) => p[0] > 1.6e9 && p[1] !== undefined && p[2] !== undefined && p[3] <= 1000).sort((a, b) => a[0] - b[0]);
   if (!pts.length) return json([]);
-  const t = (await env.STATE.get("track", "json")) ?? {}, day = new Date().toISOString().slice(0, 10);
-  const writes = t.day === day ? t.writes ?? 0 : 0;
-  const kept = (t.pts ?? []).filter((p) => p[0] > Date.now() / 1000 - TRACK_DAYS * 86400);
-  // A point close to this phone's last one in time and place adds nothing. iOS visits ("v") always count.
-  const last = kept.filter((p) => p[5] === dev).at(-1), at = (p) => ({ lat: p[1], lon: p[2] });
-  const fresh = pts.filter((p) => p[4] === "v" || !last || Math.abs(p[0] - last[0]) >= 90 || metres(at(p), at(last)) >= 30);
-  if (!fresh.length || writes >= TRACK_WRITES) return json([]);
-  await env.STATE.put("track", JSON.stringify({ pts: [...kept, ...fresh].sort((a, b) => a[0] - b[0]).slice(-4000), day, writes: writes + 1 }));
+  const day = utcDay(), t = (await env.STATE.get(trackKey(day), "json")) ?? { pts: [], writes: 0 };
+  if ((t.writes ?? 0) >= TRACK_WRITES) return json([]);
+  let last = t.pts.filter((p) => p[5] === dev).at(-1);
+  const fresh = [];
+  for (const p of pts) {
+    if (!keepPoint(p, last)) continue;
+    fresh.push(p);
+    if (!last || p[0] >= last[0]) last = p;
+  }
+  if (!fresh.length) return json([]);
+  // The first write of a day also brings along the points of the old single "track" key, once, then deletes it.
+  const legacy = t.pts.length ? null : await env.STATE.get("track", "json");
+  await env.STATE.put(trackKey(day), JSON.stringify({ pts: [...(legacy?.pts ?? []), ...t.pts, ...fresh].sort((a, b) => a[0] - b[0]),
+    writes: (t.writes ?? 0) + 1 }), { expirationTtl: TRACK_KEEP_DAYS * 86400 });
+  if (legacy) await env.STATE.delete("track");
   return json([]);
 }
+// The points of the last 3 UTC days (enough for the app's 36 hours).
+async function recentTrack(env) {
+  const days = [0, 1, 2].map((n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10));
+  return { pts: (await Promise.all(days.map((d) => env.STATE.get(trackKey(d), "json")))).flatMap((t) => t?.pts ?? []) };
+}
+const utcDay = () => new Date().toISOString().slice(0, 10);
+
 // JSON sign-in for /app: { user, password } in, { ok } or { error } out.
 async function apiLogin(request, env) {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
@@ -458,7 +484,7 @@ export default {
     if (path.startsWith("/api/owntracks/")) return owntracks(request, env, path.slice(15));
     if (!(await signedIn(request, env))) return path.startsWith("/api/") ? json({ error: "Sign in first." }, 401) : toApp();
     if (path === "/api/app") {
-      const [trip, state, visits, track] = await Promise.all([loadTrip(env), loadState(env), loadVisits(env), env.STATE.get("track", "json")]);
+      const [trip, state, visits, track] = await Promise.all([loadTrip(env), loadState(env), loadVisits(env), recentTrack(env)]);
       const trackUrl = env.APP_PASSWORD ? new URL(`/api/owntracks/${await trackToken(env)}`, request.url).href : null;
       return json(appPayload(trip, state, { visits, track, trackUrl }));
     }
