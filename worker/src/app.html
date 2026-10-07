@@ -742,6 +742,7 @@ function onGeoError(e) {
 const FOOD_KIND = { restaurant: "Restaurant", cafe: "Café", bar: "Bar", pub: "Pub", fast_food: "Fast food", biergarten: "Beer garden",
   ice_cream: "Ice cream", food_court: "Food court", nightclub: "Club", hookah_lounge: "Hookah lounge" };
 const ASK_MS = 3 * 60000, SKIP_MS = 3 * 36e5, HERE_MS = 15 * 60000, MAX_STAY_S = 4 * 3600, SNOOZE_MS = 30 * 60000;
+const STAY_S = 5 * 60; // a stop counts from 5 minutes in one place
 const metres = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lon - b.lon) * 111320 * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180));
 const isoMs = (ms) => new Date(ms).toISOString();
 const dayWord = (ms) => { const d = tashIso(ms).slice(0, 10), today = clock().date; return d === today ? "TODAY" : d === addDays(today, -1) ? "YESTERDAY" : wdm(d); };
@@ -861,7 +862,7 @@ async function checkHere(force) {
 }
 const endForce = () => { here.force = false; here.err = ""; ui.vOther = false; render(); };
 
-// Stays in the OwnTracks points, per phone: a run of points within 70 m of its first one that lasts 10 minutes or more,
+// Stays in the OwnTracks points, per phone: a run of points within 70 m of its first one that lasts STAY_S (5 min) or more,
 // or that holds an iOS visit arrival (trigger "v"; the next "v" within 6 hours is its departure). Points rougher than
 // 150 m are left out, and a stay of over 4 hours is the hotel. Times in ms; "to" is null while it goes on.
 function findStays(pts, nowMs) {
@@ -879,7 +880,7 @@ function findStays(pts, nowMs) {
       while (j < list.length && metres(at(list[i]), at(list[j])) <= 70) j++;
       const run = list.slice(i, j), next = list[j], arrival = run.find((p) => dep.has(p)), from = run[0][0], last = run.at(-1)[0];
       const end = arrival && dep.get(arrival) ? Math.max(last, dep.get(arrival)[0]) : next ? (arrival ? next[0] : last) : null;
-      if ((arrival || last - from >= 600) && (end ?? nowMs / 1000) - from <= MAX_STAY_S) {
+      if ((arrival || last - from >= STAY_S) && (end ?? nowMs / 1000) - from <= MAX_STAY_S) {
         out.push({ key: `stay:${dev}:${from}`, lat: run.reduce((s, p) => s + p[1], 0) / run.length, lon: run.reduce((s, p) => s + p[2], 0) / run.length,
           acc: Math.min(...run.map((p) => p[3])), from: from * 1000, to: end == null ? null : end * 1000 });
       }
@@ -938,7 +939,7 @@ function questions() {
     const c = stayCands.get(s.key);
     if (!c || atInn(c) || answered(s, v)) continue;
     const cands = withOwn(c.food, s, radius(s.acc), v);
-    if (!cands.length && (c.sight || (s.to ?? now) - s.from < 15 * 60000)) continue; // a sight on the map, or too short
+    if (!cands.length && (c.sight || (s.to ?? now) - s.from < STAY_S * 1000)) continue; // a sight on the map, or too short
     // The same spot as the fix (still there), or as another phone's stay at that time.
     if (out.some((q) => metres(q, s) < 70 && (q.kind === "here" ? s.to == null || now - s.to < 18e5 : s.from <= (q.to ?? now) && q.from <= (s.to ?? now)))) continue;
     out.push({ ...s, kind: "stay", cands });
@@ -1036,7 +1037,7 @@ function beenTools() {
 <div class="sub">${t ? `Last point ${dayWord(t * 1000).toLowerCase()} ${tashHM(t * 1000)}${n > 1 ? ` · ${n} phones` : ""}` : "Not set up on any phone yet."}</div>
 ${data.trackUrl ? `<div class="two"><a class="btn2" href="https://apps.apple.com/app/id692424691" target="_blank" rel="noopener">1 · Install ↗</a><button class="btn2 teal" data-act="copy-track">${ui.copied ? "Copied ✓" : "2 · Copy address"}</button></div>
 <div class="turl" id="track-url">${esc(data.trackUrl)}</div>` : ""}
-<div class="s13">For the places where nobody opens the app. Install OwnTracks (free). In OwnTracks tap ⓘ, then Settings: set Mode to HTTP, paste the address into URL and go back. Allow its location "Always" and leave it on Significant, which uses little battery. Each stop of 10 minutes or more then becomes a question on NOW, or is saved on its own when one place is clearly the one.</div></section>`;
+<div class="s13">For the places where nobody opens the app. Install OwnTracks (free). In OwnTracks tap ⓘ, then Settings: set Mode to HTTP, paste the address into URL and go back. Allow its location "Always" and leave it on Significant, which uses little battery. Each stop of 5 minutes or more then becomes a question on NOW, or is saved on its own when one place is clearly the one.</div></section>`;
 }
 
 // ---- Render ----

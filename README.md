@@ -79,9 +79,9 @@ A list of the cafés, bars and restaurants we went to, in TRIP, shared by both p
   configuration links: its "allow configuration by URI" setting is off and not in its UI.) Allow it location "Always" and
   keep the battery-saving "Significant" mode, which reports iOS visits. Its points go to KV `track`
   (3 days, at most 300 writes a day, so the seat watcher's state always fits in the KV free tier). The app finds the
-  stays in them: 10 minutes or more within 70 m, or an iOS visit. A stay where one place is clearly the one (the
+  stays in them: 5 minutes or more within 70 m, or an iOS visit. A stay where one place is clearly the one (the
   nearest within 25 m, the next 25 m further, points good to 40 m) is saved on its own ("saved on its own" in the list);
-  any other stay of 15 minutes or more becomes a "Were you here?" question on NOW. The token is derived from
+  any other stay becomes a "Were you here?" question on NOW. The token is derived from
   `APP_PASSWORD`: after changing the password, copy the new address into OwnTracks.
 
 ## Private data
