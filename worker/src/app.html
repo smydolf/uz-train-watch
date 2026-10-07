@@ -393,6 +393,7 @@ function loadStore() {
     askHere: s?.askHere !== false, // BEEN THERE: ask "Are you here?" when the app opens
     vq: Array.isArray(s?.vq) ? s.vq : [], // BEEN THERE changes not sent yet (offline)
     devId: typeof s?.devId === "string" ? s.devId : `trip-${Math.random().toString(36).slice(2, 6)}`, // OwnTracks deviceId
+    snooze: typeof s?.snooze === "number" ? s.snooze : 0, // BEEN THERE: no "Where are you?" without a place on the map until then (ms)
   };
 }
 let store = loadStore();
@@ -741,7 +742,7 @@ function onGeoError(e) {
 // becomes a question too, or is saved on its own when one place is clearly the one.
 const FOOD_KIND = { restaurant: "Restaurant", cafe: "Café", bar: "Bar", pub: "Pub", fast_food: "Fast food", biergarten: "Beer garden",
   ice_cream: "Ice cream", food_court: "Food court", nightclub: "Club", hookah_lounge: "Hookah lounge" };
-const ASK_MS = 3 * 60000, SKIP_MS = 3 * 36e5, HERE_MS = 15 * 60000, MAX_STAY_S = 4 * 3600;
+const ASK_MS = 3 * 60000, SKIP_MS = 3 * 36e5, HERE_MS = 15 * 60000, MAX_STAY_S = 4 * 3600, SNOOZE_MS = 30 * 60000;
 const metres = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lon - b.lon) * 111320 * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180));
 const isoMs = (ms) => new Date(ms).toISOString();
 const dayWord = (ms) => { const d = tashIso(ms).slice(0, 10), today = clock().date; return d === today ? "TODAY" : d === addDays(today, -1) ? "YESTERDAY" : wdm(d); };
@@ -912,22 +913,36 @@ async function refreshStays() {
     } catch { stayCands.delete(s.key); } // the next load tries again
   }
 }
-// The open questions: "Are you here?" from this phone's fix, then the stays, newest first.
+// The food places on the map near a spot, with the places on our own list saved there before (OSM lacks many cafés,
+// so one typed in once is offered the next time), nearest first.
+function withOwn(food, at, r, v) {
+  const own = v.list.filter((x) => x.lat != null && metres(x, at) <= r + 10 && !food.some((p) => p.id === x.osm || p.n.toLowerCase() === x.name.toLowerCase()))
+    .map((x) => ({ id: x.osm || `own:${x.id}`, n: x.name, k: x.kind || "", lat: x.lat, lon: x.lon, d: Math.round(metres(x, at)), own: true }));
+  return [...food, ...own.filter((x, i) => own.findIndex((y) => y.n.toLowerCase() === x.n.toLowerCase()) === i)].sort((a, b) => a.d - b.d);
+}
+// The open questions: "Are you here?" from this phone's fix, then the stays, newest first. With no place on the map (or
+// only ones answered No) the fix still asks "Where are you?" with a box for the name, unless it is near a sight on the
+// city map, rough (over 100 m), or NOT NOW was tapped in the last 30 minutes.
 function questions() {
   const v = visitsNow(), now = Date.now(), out = [];
   if (here.fix && here.places && (here.force || now - here.at < HERE_MS)) {
     const q = { kind: "here", key: null, lat: here.fix.lat, lon: here.fix.lon, acc: here.fix.acc, from: now - SKIP_MS, to: now };
     const no = new Set(v.skip.filter((s) => now - Date.parse(s.at) < SKIP_MS).map((s) => s.k));
-    const cands = here.force ? here.places.food : here.places.food.filter((p) => !no.has(`osm:${p.id}`));
-    if (here.force || (cands.length && !atInn(here.places) && !answered(q, v))) out.push({ ...q, cands });
+    const all = withOwn(here.places.food, here.fix, radius(here.fix.acc), v), cands = all.filter((p) => !no.has(`osm:${p.id}`));
+    if (here.force) out.push({ ...q, cands: all });
+    else if (!atInn(here.places) && !answered(q, v)) {
+      if (cands.length) out.push({ ...q, cands });
+      else if (!here.places.sight && here.fix.acc <= 100 && now >= store.snooze) out.push({ ...q, cands: [] });
+    }
   }
   for (const s of stays) {
     const c = stayCands.get(s.key);
     if (!c || atInn(c) || answered(s, v)) continue;
-    if (!c.food.length && (c.sight || (s.to ?? now) - s.from < 15 * 60000)) continue; // a sight on the map, or too short
+    const cands = withOwn(c.food, s, radius(s.acc), v);
+    if (!cands.length && (c.sight || (s.to ?? now) - s.from < 15 * 60000)) continue; // a sight on the map, or too short
     // The same spot as the fix (still there), or as another phone's stay at that time.
     if (out.some((q) => metres(q, s) < 70 && (q.kind === "here" ? s.to == null || now - s.to < 18e5 : s.from <= (q.to ?? now) && q.from <= (s.to ?? now)))) continue;
-    out.push({ ...s, kind: "stay", cands: c.food });
+    out.push({ ...s, kind: "stay", cands });
   }
   return out;
 }
@@ -960,15 +975,15 @@ function askCard() {
   shownQ = q || null;
   if (!q) return "";
   const top = q.cands[0], more = q.cands.slice(1, 5), other = ui.vOther || !top, forced = q.kind === "here" && here.force;
-  const head = forced ? "WHERE ARE YOU?" : q.kind === "here" ? "ARE YOU HERE?" : "WERE YOU HERE?";
+  const head = q.kind === "here" ? (forced || !top ? "WHERE ARE YOU?" : "ARE YOU HERE?") : "WERE YOU HERE?";
   const when = q.kind === "here" ? `±${Math.max(5, Math.round(q.acc / 5) * 5)} m` : `${dayWord(q.from)} ${tashHM(q.from)}–${q.to ? tashHM(q.to) : "NOW"}`;
-  const none = q.kind === "here" ? "No café, bar or restaurant on the map right here." : "Nothing on the map here.";
+  const none = q.kind === "here" ? "No café, bar or restaurant on the map right here. If you are in one," : "Nothing on the map here.";
   return `<section class="card ask"><div class="row lbl"><span class="teal">${head}</span><span>${esc(when)}${qs.length > 1 ? ` · 1/${qs.length}` : ""}</span></div>
-${top ? `<div class="t22">${esc(top.n)}</div><div class="sub">${esc(FOOD_KIND[top.k])} · ${top.d} m away</div>
-<div class="two"><button class="btn pri" data-act="v-yes" data-i="0">Yes</button><button class="btn" data-act="v-no">No</button></div>` : `<div class="sub">${none} Type its name to keep it.</div>`}
+${top ? `<div class="t22">${esc(top.n)}</div><div class="sub">${esc(FOOD_KIND[top.k] || "On your list")} · ${top.d} m away</div>
+<div class="two"><button class="btn pri" data-act="v-yes" data-i="0">Yes</button><button class="btn" data-act="v-no">No</button></div>` : `<div class="sub">${none} ${q.kind === "here" ? "type" : "Type"} its name to keep it.</div>`}
 ${more.length || (top && !other) ? `<div class="chips">${more.map((p, i) => `<button class="chip" data-act="v-yes" data-i="${i + 1}">${esc(p.n)} · ${p.d} m</button>`).join("")}${top && !other ? '<button class="chip" data-act="v-other">Other…</button>' : ""}</div>` : ""}
 ${other ? `<div class="vadd"><input id="v-name" data-input="v-name" value="${esc(ui.vName)}" placeholder="Name of the place" enterkeyhint="done" autocomplete="off" aria-label="Name of the place"><button class="addb" data-act="v-save">SAVE</button></div>` : ""}
-<div class="row">${forced ? '<button class="reset" data-act="v-cancel">CANCEL</button>' : `<button class="reset" data-act="v-quiet">NOT A PLACE · DON'T ASK HERE</button>${top ? "" : '<button class="reset" data-act="v-no">SKIP</button>'}`}</div></section>`;
+<div class="row">${forced ? '<button class="reset" data-act="v-cancel">CANCEL</button>' : `<button class="reset" data-act="v-quiet">NOT A PLACE · DON'T ASK HERE</button>${top ? "" : `<button class="reset" data-act="v-no">${q.kind === "here" ? "NOT NOW" : "SKIP"}</button>`}`}</div></section>`;
 }
 
 function beenCard(clk) {
@@ -986,6 +1001,16 @@ ${list.length ? [...days].map(([d, xs]) => `<div class="vday">${wdm(d)}${d === c
 <div class="kadd"><input id="v-add" data-input="v-add" value="${esc(ui.vAdd)}" placeholder="Add a place by name…" enterkeyhint="done" autocomplete="off" aria-label="New place"><button class="addb" data-act="v-add">ADD</button></div></section>`;
 }
 
+// What the last check found, so a missing question can be told apart from a failed one.
+function hereStatus() {
+  if (!store.askHere) return "Not asking.";
+  if (here.busy) return "Checking where you are…";
+  if (here.err) return here.err;
+  if (!here.fix) return "No check yet since the app opened.";
+  if (!here.places) return `Last check ${tashHM(here.at)}: location too rough (±${Math.round(here.fix.acc)} m).`;
+  const n = here.places.food.length;
+  return `Last check ${tashHM(here.at)}: ±${Math.round(here.fix.acc)} m, ${n || "no"} café${n === 1 ? "" : "s"}, bars or restaurants on the map within ${radius(here.fix.acc)} m.`;
+}
 // TOOLS: asking on open, and OwnTracks for the background. Set up opens OwnTracks with its settings (HTTP mode to this
 // Worker, the battery-saving "significant changes" mode with iOS visits); the URL's token is in /api/app.
 function beenTools() {
@@ -996,7 +1021,8 @@ function beenTools() {
     auth: false, monitoring: 1, deviceId: store.devId, tid: store.devId.slice(-2).toUpperCase() })))}`;
   return `<section class="card"><div class="row lbl"><span>BEEN THERE</span><span>${store.askHere ? "ASKS ON OPEN" : "OFF"}</span></div>
 <div class="seg3 seg2">${[[true, "ASK ON OPEN"], [false, "OFF"]].map(([on, l]) => `<button class="${store.askHere === on ? "on" : ""}" data-act="ask" data-on="${on ? 1 : 0}" aria-pressed="${store.askHere === on}">${l}</button>`).join("")}</div>
-<div class="s13">When you open the app near a café, bar or restaurant, NOW asks "Are you here?". Yes adds it to BEEN THERE in TRIP, on both phones. The places come from OpenStreetMap; a missing one can be typed in.</div>
+<div class="sub">${esc(hereStatus())}</div>
+<div class="s13">When you open the app near a café, bar or restaurant, NOW asks "Are you here?". Yes adds it to BEEN THERE in TRIP, on both phones. The places come from OpenStreetMap; where it has none, NOW asks "Where are you?" so you can type the name, and next time there it offers that place.</div>
 <div class="lbl4" style="margin-top:10px">IN THE BACKGROUND · OWNTRACKS</div>
 <div class="sub">${t ? `Last point ${dayWord(t * 1000).toLowerCase()} ${tashHM(t * 1000)}${n > 1 ? ` · ${n} phones` : ""}` : "Not set up on any phone yet."}</div>
 ${cfg ? `<div class="two"><a class="btn2" href="https://apps.apple.com/app/id692424691" target="_blank" rel="noopener">1 · Install ↗</a><a class="btn2 teal" href="${esc(cfg)}">2 · Set up</a></div>` : ""}
@@ -1485,12 +1511,17 @@ document.addEventListener("click", (e) => {
       break;
     }
     case "geo-off": store.geoOn = false; save(); geoStop(); geo.fix = null; geo.err = ""; drawDot(); break;
-    case "v-yes": { const p = shownQ?.cands[+el.dataset.i]; if (p) answerYes(shownQ, { name: p.n, kind: p.k, lat: p.lat, lon: p.lon, osm: p.id }); break; }
+    case "v-yes": { const p = shownQ?.cands[+el.dataset.i]; if (p) answerYes(shownQ, { name: p.n, kind: p.k, lat: p.lat, lon: p.lon, osm: p.id.startsWith("own:") ? undefined : p.id }); break; }
     case "v-no": {
       const q = shownQ;
       if (!q) break;
       if (q.kind === "here" && here.force) endForce();
-      else visitOp({ op: "skip", keys: q.kind === "here" ? q.cands.slice(0, 5).map((p) => `osm:${p.id}`) : [q.key] });
+      else if (q.kind === "stay") visitOp({ op: "skip", keys: [q.key] });
+      else {
+        // No (or NOT NOW): those places for 3 hours, and no "Where are you?" without a place for 30 minutes.
+        store.snooze = Date.now() + SNOOZE_MS; persist();
+        if (q.cands.length) visitOp({ op: "skip", keys: q.cands.slice(0, 5).map((p) => `osm:${p.id}`) }); else render();
+      }
       break;
     }
     case "v-other": ui.vOther = true; render(); document.getElementById("v-name")?.focus(); break;
