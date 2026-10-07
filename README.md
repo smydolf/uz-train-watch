@@ -75,13 +75,14 @@ A list of the cafés, bars and restaurants we went to, in TRIP, shared by both p
 - The phone asks OpenStreetMap itself (Overpass, then Photon and a second Overpass server after 3 seconds), since the
   Worker's shared Cloudflare address runs into their per-address limits. OSM does not have every place: type it in.
 - **In the background**, with [OwnTracks](https://apps.apple.com/app/id692424691) (free): TOOLS → 1 · Install, then
-  2 · Set up, which opens OwnTracks with its settings (HTTP mode to `/api/owntracks/<token>`, the battery-saving
-  "significant changes" mode, which reports iOS visits), and allow it location "Always". Its points go to KV `track`
+  2 · Copy address, and in OwnTracks ⓘ → Settings: Mode HTTP, paste the address into URL. (OwnTracks on iOS ignores
+  configuration links: its "allow configuration by URI" setting is off and not in its UI.) Allow it location "Always" and
+  keep the battery-saving "Significant" mode, which reports iOS visits. Its points go to KV `track`
   (3 days, at most 300 writes a day, so the seat watcher's state always fits in the KV free tier). The app finds the
   stays in them: 10 minutes or more within 70 m, or an iOS visit. A stay where one place is clearly the one (the
   nearest within 25 m, the next 25 m further, points good to 40 m) is saved on its own ("saved on its own" in the list);
   any other stay of 15 minutes or more becomes a "Were you here?" question on NOW. The token is derived from
-  `APP_PASSWORD`: after changing the password, tap Set up again.
+  `APP_PASSWORD`: after changing the password, copy the new address into OwnTracks.
 
 ## Private data
 

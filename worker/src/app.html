@@ -135,6 +135,7 @@ input:focus-visible{outline:0}
 .vt{font:600 13px var(--mono);color:var(--muted)}
 .vn{font-size:16px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
 .seg3.seg2{grid-template-columns:1fr 1fr}
+.turl{font:500 12px/1.5 var(--mono);color:var(--text2);background:var(--raised);border-radius:10px;padding:8px 10px;word-break:break-all;-webkit-user-select:all;user-select:all}
 
 /* DAY */
 .dayhd{padding:6px 6px 0}
@@ -392,12 +393,10 @@ function loadStore() {
     geoOn: s?.geoOn === true, // the NOW map follows the phone's location
     askHere: s?.askHere !== false, // BEEN THERE: ask "Are you here?" when the app opens
     vq: Array.isArray(s?.vq) ? s.vq : [], // BEEN THERE changes not sent yet (offline)
-    devId: typeof s?.devId === "string" ? s.devId : `trip-${Math.random().toString(36).slice(2, 6)}`, // OwnTracks deviceId
     snooze: typeof s?.snooze === "number" ? s.snooze : 0, // BEEN THERE: no "Where are you?" without a place on the map until then (ms)
   };
 }
 let store = loadStore();
-persist(); // keeps the new devId
 // One object, one key: a later POST /api/state can share it between phones (last write wins).
 function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {} }
 function save() { store.savedAt = new Date().toISOString(); persist(); }
@@ -429,7 +428,7 @@ function toggleSlip(id) {
 let data = null, M = null, lastText = "";
 let drag = null; // a stop being dragged in DAY
 const ui = { tab: "now", day: null, openDay: null, notes: new Set(), kitEdit: false, kitDraft: "", uzs: 425000, slipsOpen: false,
-  vOther: false, vName: "", vAdd: "", login: { user: "", pass: "", show: false, err: "", busy: false } };
+  vOther: false, vName: "", vAdd: "", copied: false, login: { user: "", pass: "", show: false, err: "", busy: false } };
 
 // ---- Trip model ----
 function build(d) {
@@ -1011,22 +1010,33 @@ function hereStatus() {
   const n = here.places.food.length;
   return `Last check ${tashHM(here.at)}: ±${Math.round(here.fix.acc)} m, ${n || "no"} café${n === 1 ? "" : "s"}, bars or restaurants on the map within ${radius(here.fix.acc)} m.`;
 }
-// TOOLS: asking on open, and OwnTracks for the background. Set up opens OwnTracks with its settings (HTTP mode to this
-// Worker, the battery-saving "significant changes" mode with iOS visits); the URL's token is in /api/app.
+// TOOLS: asking on open, and OwnTracks for the background. OwnTracks on iOS ignores configuration links (its
+// "allow configuration by URI" setting is off and not in its UI), so the address is copied and pasted into its URL field.
+// The address's token is in /api/app.
+async function copyTrackUrl() {
+  try {
+    await navigator.clipboard.writeText(data.trackUrl);
+  } catch {
+    const el = document.getElementById("track-url"); // no clipboard: select it, so Copy is one tap away
+    if (el) getSelection().selectAllChildren(el);
+    return;
+  }
+  ui.copied = true; render();
+  setTimeout(() => { ui.copied = false; refresh(); }, 2500);
+}
 function beenTools() {
   const last = {};
   for (const p of data.track || []) last[p[5]] = Math.max(last[p[5]] || 0, p[0]);
   const t = Math.max(0, ...Object.values(last)), n = Object.keys(last).length;
-  const cfg = data.trackUrl && `owntracks:///config?inline=${encodeURIComponent(btoa(JSON.stringify({ _type: "configuration", mode: 3, url: data.trackUrl,
-    auth: false, monitoring: 1, deviceId: store.devId, tid: store.devId.slice(-2).toUpperCase() })))}`;
   return `<section class="card"><div class="row lbl"><span>BEEN THERE</span><span>${store.askHere ? "ASKS ON OPEN" : "OFF"}</span></div>
 <div class="seg3 seg2">${[[true, "ASK ON OPEN"], [false, "OFF"]].map(([on, l]) => `<button class="${store.askHere === on ? "on" : ""}" data-act="ask" data-on="${on ? 1 : 0}" aria-pressed="${store.askHere === on}">${l}</button>`).join("")}</div>
 <div class="sub">${esc(hereStatus())}</div>
 <div class="s13">When you open the app near a café, bar or restaurant, NOW asks "Are you here?". Yes adds it to BEEN THERE in TRIP, on both phones. The places come from OpenStreetMap; where it has none, NOW asks "Where are you?" so you can type the name, and next time there it offers that place.</div>
 <div class="lbl4" style="margin-top:10px">IN THE BACKGROUND · OWNTRACKS</div>
 <div class="sub">${t ? `Last point ${dayWord(t * 1000).toLowerCase()} ${tashHM(t * 1000)}${n > 1 ? ` · ${n} phones` : ""}` : "Not set up on any phone yet."}</div>
-${cfg ? `<div class="two"><a class="btn2" href="https://apps.apple.com/app/id692424691" target="_blank" rel="noopener">1 · Install ↗</a><a class="btn2 teal" href="${esc(cfg)}">2 · Set up</a></div>` : ""}
-<div class="s13">For the places where nobody opens the app. Install OwnTracks (free), tap Set up, and allow its location "Always": it sends this phone's location here in the background, in the battery-saving mode. Each stop of 10 minutes or more becomes a question on NOW, or is saved on its own when one place is clearly the one.</div></section>`;
+${data.trackUrl ? `<div class="two"><a class="btn2" href="https://apps.apple.com/app/id692424691" target="_blank" rel="noopener">1 · Install ↗</a><button class="btn2 teal" data-act="copy-track">${ui.copied ? "Copied ✓" : "2 · Copy address"}</button></div>
+<div class="turl" id="track-url">${esc(data.trackUrl)}</div>` : ""}
+<div class="s13">For the places where nobody opens the app. Install OwnTracks (free). In OwnTracks tap ⓘ, then Settings: set Mode to HTTP, paste the address into URL and go back. Allow its location "Always" and leave it on Significant, which uses little battery. Each stop of 10 minutes or more then becomes a question on NOW, or is saved on its own when one place is clearly the one.</div></section>`;
 }
 
 // ---- Render ----
@@ -1531,6 +1541,7 @@ document.addEventListener("click", (e) => {
     case "v-cancel": endForce(); break;
     case "v-del": { const x = visitsNow().list.find((x) => x.id === id); if (x && confirm(`Remove ${x.name} from BEEN THERE?`)) visitOp({ op: "del", id }); break; }
     case "v-add": addByName(); break;
+    case "copy-track": copyTrackUrl(); break;
     case "ask": store.askHere = el.dataset.on === "1"; persist(); if (store.askHere) { here.at = 0; checkHere(); } render(); break;
   }
 });
