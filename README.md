@@ -9,7 +9,7 @@ A small trip companion for a rail trip through Uzbekistan, running as one Cloudf
     the city map with a "you are here" dot, tonight's train or hotel, and the stops left today. Near a café, bar or
     restaurant it asks "Are you here?" (see BEEN THERE below).
   - **DAY** shows one day as a route line, with Maps links, Done and Skip. Drag a stop by its grip to reorder the day.
-  - **TRIP** shows the whole journey, with computed warnings, BEEN THERE (the places we have been), trains, hotels and slips.
+  - **TRIP** shows BEEN THERE (the places we have been) first, then the whole journey: computed warnings, days, trains, hotels and slips.
   - **TOOLS** has the UZS → PLN converter, a kit checklist, emergency numbers and tonight's hotel
     in Russian for the taxi driver, the travel insurance, and the BEEN THERE settings.
 The app is behind a password sign-in (one account) and works offline after one visit.

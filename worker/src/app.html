@@ -1229,9 +1229,9 @@ function renderTrip(clk) {
   const trains = t.bookings.map(trainCard).join("") + (data.watch || []).map(watchCard).join("");
   return `<div class="px6"><div class="sub13">${range(t.start, t.end)} · ${plural(trainsOf(t).length, "TRAIN")} · ${plural(t.hotels.length, "HOTEL")}</div><div class="h28">Trip</div></div>
 <div class="bar px6">${M.segments.map((s) => `<i style="flex:${s.days};background:${color(s.city)}"></i>`).join("")}</div>
+${askCard()}${beenCard(clk)}
 ${warn.length ? warnCard(warn) : ""}
 <section class="card days"><div class="lbl"><span>DAYS</span><span>TAP FOR PLAN</span></div>${M.dates.map((d) => tripDay(d, clk)).join("")}</section>
-${askCard()}${beenCard(clk)}
 ${trains ? `<div class="lbl sec">${t.bookings.some(isFlight) ? "Trains &amp; flights" : "Trains"}</div>${trains}` : ""}
 <div class="lbl sec">Hotels</div>${hotelList()}
 ${papers()}`;
