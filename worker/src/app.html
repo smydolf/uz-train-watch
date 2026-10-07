@@ -878,9 +878,12 @@ function findStays(pts, nowMs) {
     for (let i = 0; i < list.length;) {
       let j = i + 1;
       while (j < list.length && metres(at(list[i]), at(list[j])) <= 70) j++;
-      const run = list.slice(i, j), next = list[j], arrival = run.find((p) => dep.has(p)), from = run[0][0], last = run.at(-1)[0];
-      const end = arrival && dep.get(arrival) ? Math.max(last, dep.get(arrival)[0]) : next ? (arrival ? next[0] : last) : null;
-      if ((arrival || last - from >= STAY_S) && (end ?? nowMs / 1000) - from <= MAX_STAY_S) {
+      const run = list.slice(i, j), next = list[j], from = run[0][0], last = run.at(-1)[0];
+      // An arrival counts only if the phone stays put until its departure: the first "v" can be a departure (OwnTracks
+      // set up mid-stay), and a point elsewhere before the next "v" shows it.
+      const a = run.find((p) => dep.has(p)), d = a && dep.get(a), arrival = a && !(next && d && next[0] < d[0]) ? a : null;
+      const end = arrival && d ? Math.max(last, d[0]) : next ? (arrival ? next[0] : last) : null, len = (end ?? nowMs / 1000) - from;
+      if ((arrival || last - from >= STAY_S) && len >= STAY_S && len <= MAX_STAY_S) {
         out.push({ key: `stay:${dev}:${from}`, lat: run.reduce((s, p) => s + p[1], 0) / run.length, lon: run.reduce((s, p) => s + p[2], 0) / run.length,
           acc: Math.min(...run.map((p) => p[3])), from: from * 1000, to: end == null ? null : end * 1000 });
       }
