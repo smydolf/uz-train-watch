@@ -331,7 +331,8 @@ const metres = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lon - b.lon) * 
 // BEEN THERE, the places we have been: KV "visits", written by the app (POST /api/visits) from every phone and
 // downloaded by scripts/pull.sh. { list: [visit], skip: [{ k, at }], quiet: [{ lat, lon, at }] }. A visit:
 // { id, name, kind?, lat?, lon?, at, until?, src: here | stay | auto | manual, osm?, stay? }. skip: questions
-// answered No ("osm:<place>" for 3 hours, "stay:<device>:<start>" for good); quiet: spots never to ask about.
+// answered No ("osm:<place>" for 3 hours, "stay:<device>:<start>" for good), and stays answered Yes with a visit
+// the list already has; quiet: spots never to ask about.
 const SRCS = ["here", "stay", "auto", "manual"];
 async function loadVisits(env) {
   return { list: [], skip: [], quiet: [], ...((await env.STATE.get("visits", "json")) ?? {}) };
@@ -345,8 +346,8 @@ function cleanVisit(v) {
   return Object.fromEntries(Object.entries(x).filter(([, val]) => val !== undefined && val !== ""));
 }
 // One change per request: { op: "add", visit } | { op: "del", id } | { op: "skip", keys } | { op: "quiet", lat, lon }.
-// An add the list already has (same id or stay, or the same place within 3 hours) changes nothing, so a phone
-// can resend its queued changes, and two phones can save the same stay.
+// An add the list already has (same id or stay, or the same place within 3 hours) adds no visit, so a phone
+// can resend its queued changes, and two phones can save the same stay; only its stay is noted as answered.
 async function apiVisits(request, env) {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   const op = await request.json().catch(() => null), v = await loadVisits(env);
@@ -357,8 +358,11 @@ async function apiVisits(request, env) {
       if (!x) return json({ error: "A place needs a name." }, 400);
       const dup = (y) => y.id === x.id || (x.stay && y.stay === x.stay)
         || (x.osm && y.osm === x.osm && Math.abs(Date.parse(y.at) - Date.parse(x.at)) < 3 * 3600e3);
-      if (v.list.some(dup)) return json({ ok: true, visits: v });
-      v.list = [...v.list, x].slice(-500);
+      if (!v.list.some(dup)) { v.list = [...v.list, x].slice(-500); break; }
+      // The place is on the list already (this visit, saved earlier): a stay answered Yes with it is still answered,
+      // else "Were you here?" asks about that stay again.
+      if (!x.stay || v.list.some((y) => y.stay === x.stay) || v.skip.some((s) => s.k === x.stay)) return json({ ok: true, visits: v });
+      v.skip = [...v.skip, { k: x.stay, at }].slice(-400);
       break;
     }
     case "del": v.list = v.list.filter((y) => y.id !== op.id); break;

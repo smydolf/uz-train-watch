@@ -752,12 +752,16 @@ const placeCache = []; // { lat, lon, r, places: a promise of the places there }
 const stayCands = new Map(); // stay key → its places, or null while they load
 let stays = [], shownQ = null, sending = false, visitsRev = 0;
 
-// The list as the server has it, with the changes still waiting on this phone.
+// The list as the server has it, with the changes still waiting on this phone. An add the list has already (the
+// server's rule: same id or stay, or the same place within 3 hours) adds no visit; its stay counts as answered.
 function visitsNow() {
   const s = data?.visits || {}, v = { list: [...(s.list || [])], skip: [...(s.skip || [])], quiet: [...(s.quiet || [])] };
   for (const op of store.vq) {
-    if (op.op === "add" && !v.list.some((x) => x.id === op.visit.id || (op.visit.stay && x.stay === op.visit.stay))) v.list.push({ ...op.visit, queued: true });
-    else if (op.op === "del") v.list = v.list.filter((x) => x.id !== op.id);
+    if (op.op === "add") {
+      const x = op.visit, dup = (y) => y.id === x.id || (x.stay && y.stay === x.stay) || (x.osm && y.osm === x.osm && Math.abs(Date.parse(y.at) - Date.parse(x.at)) < 3 * 36e5);
+      if (!v.list.some(dup)) v.list.push({ ...x, queued: true });
+      else if (x.stay) v.skip.push({ k: x.stay, at: op.at });
+    } else if (op.op === "del") v.list = v.list.filter((x) => x.id !== op.id);
     else if (op.op === "skip") v.skip.push(...op.keys.map((k) => ({ k, at: op.at })));
     else if (op.op === "quiet") v.quiet.push({ lat: op.lat, lon: op.lon, at: op.at });
   }
