@@ -867,8 +867,9 @@ async function checkHere(force) {
 const endForce = () => { here.force = false; here.err = ""; ui.vOther = false; render(); };
 
 // Stays in the OwnTracks points, per phone: a run of points within 70 m of its first one that lasts STAY_S (5 min) or more,
-// or that holds an iOS visit arrival (trigger "v"; the next "v" within 6 hours is its departure). Points rougher than
-// 150 m are left out, and a stay of over 4 hours is the hotel. Times in ms; "to" is null while it goes on.
+// that is followed by a quiet spell (see quiet below), or that holds an iOS visit arrival (trigger "v"; the next "v"
+// within 6 hours is its departure). Points rougher than 150 m are left out, and a stay of over 4 hours is the hotel.
+// Times in ms; "to" is null while it goes on.
 function findStays(pts, nowMs) {
   const by = {}, out = [], at = (p) => ({ lat: p[1], lon: p[2] });
   for (const p of pts) if (p[3] <= 150) (by[p[5]] ??= []).push(p);
@@ -886,8 +887,12 @@ function findStays(pts, nowMs) {
       // An arrival counts only if the phone stays put until its departure: the first "v" can be a departure (OwnTracks
       // set up mid-stay), and a point elsewhere before the next "v" shows it.
       const a = run.find((p) => dep.has(p)), d = a && dep.get(a), arrival = a && !(next && d && next[0] < d[0]) ? a : null;
-      const end = arrival && d ? Math.max(last, d[0]) : next ? (arrival ? next[0] : last) : null, len = (end ?? nowMs / 1000) - from;
-      if ((arrival || last - from >= STAY_S) && len >= STAY_S && len <= MAX_STAY_S) {
+      // Quiet in one place: in Move mode OwnTracks drops to battery-saving after standing still (adapt) and sends nothing
+      // until the phone leaves its +follow circle ("C"), so a "C" after a quiet spell ends a stay; with no point yet,
+      // Move mode's 5-minute timer has gone quiet.
+      const quiet = next ? next[4] === "C" && next[0] - last >= STAY_S : run.some((p) => p[4] === "t") && nowMs / 1000 - last >= STAY_S;
+      const end = arrival && d ? Math.max(last, d[0]) : next ? (arrival || quiet ? next[0] : last) : null, len = (end ?? nowMs / 1000) - from;
+      if ((arrival || quiet || last - from >= STAY_S) && len >= STAY_S && len <= MAX_STAY_S) {
         out.push({ key: `stay:${dev}:${from}`, lat: run.reduce((s, p) => s + p[1], 0) / run.length, lon: run.reduce((s, p) => s + p[2], 0) / run.length,
           acc: Math.min(...run.map((p) => p[3])), from: from * 1000, to: end == null ? null : end * 1000 });
       }
