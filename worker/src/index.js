@@ -358,7 +358,7 @@ async function apiVisits(request, env) {
       if (!x) return json({ error: "A place needs a name." }, 400);
       const dup = (y) => y.id === x.id || (x.stay && y.stay === x.stay)
         || (x.osm && y.osm === x.osm && Math.abs(Date.parse(y.at) - Date.parse(x.at)) < 3 * 3600e3);
-      if (!v.list.some(dup)) { v.list = [...v.list, x].slice(-500); break; }
+      if (!v.list.some(dup)) { v.list = [...v.list, x]; break; }
       // The place is on the list already (this visit, saved earlier): a stay answered Yes with it is still answered,
       // else "Were you here?" asks about that stay again.
       if (!x.stay || v.list.some((y) => y.stay === x.stay) || v.skip.some((s) => s.k === x.stay)) return json({ ok: true, visits: v });
@@ -386,10 +386,10 @@ async function apiVisits(request, env) {
 // Background location from OwnTracks (iOS and Android, HTTP mode): stays for BEEN THERE, and the routes for a map of the
 // trip afterwards. Its URL carries a token derived from the password, so changing the password changes it; the app shows
 // it in TOOLS. OwnTracks posts one message per request and keeps it queued until it gets a 2xx with a JSON array.
-// KV "track:<UTC day it arrived>": { pts: [[tst, lat, lon, acc, trigger, device]], writes }, kept TRACK_KEEP_DAYS days so
-// the whole trip can be drawn (scripts/pull.sh merges them into track.json). Writes are capped at TRACK_WRITES a day, so
+// KV "track:<UTC day it arrived>": { pts: [[tst, lat, lon, acc, trigger, device]], writes }, kept for good so the
+// whole trip can be drawn (scripts/pull.sh merges them into track.json). Writes are capped at TRACK_WRITES a day, so
 // the seat watcher's 288 state writes always fit in the KV free tier's 1,000.
-const TRACK_WRITES = 500, TRACK_KEEP_DAYS = 90;
+const TRACK_WRITES = 500;
 const trackKey = (day) => `track:${day}`;
 const trackToken = async (env) => (await hmac(env, "owntracks-v1")).slice(0, 32);
 const pt = (p) => ({ lat: p[1], lon: p[2] });
@@ -424,7 +424,7 @@ async function owntracks(request, env, token) {
   // The first write of a day also brings along the points of the old single "track" key, once, then deletes it.
   const legacy = t.pts.length ? null : await env.STATE.get("track", "json");
   await env.STATE.put(trackKey(day), JSON.stringify({ pts: [...(legacy?.pts ?? []), ...t.pts, ...fresh].sort((a, b) => a[0] - b[0]),
-    writes: (t.writes ?? 0) + 1 }), { expirationTtl: TRACK_KEEP_DAYS * 86400 });
+    writes: (t.writes ?? 0) + 1 }));
   if (legacy) await env.STATE.delete("track");
   return json([]);
 }

@@ -80,7 +80,7 @@ A list of the cafés, bars and restaurants we went to, in TRIP, shared by both p
   For routes as well as stops, use Move mode with OwnTracks' own switching: a region named `+follow` (any radius; the
   leading + makes it follow the phone), and in Settings `adapt` 5 and `downgrade` 20. After 5 minutes without moving it
   drops to Significant; leaving the follow region brings Move back; below 20 % battery it stays in Significant.
-  Points go to KV `track:<UTC day>` and are kept 90 days, so the trip can be drawn afterwards. The Worker thins them per
+  Points go to KV `track:<UTC day>` and are kept for good, so the trip can be drawn afterwards. The Worker thins them per
   phone: visits, manual sends and region events always; standing still one point in 4 minutes; on foot every point 20 s
   apart; faster than 30 km/h one in 2 minutes. At most 500 writes a day, so the seat watcher's state always fits in the
   KV free tier. The app finds the stays in the last 36 hours: 5 minutes or more within 70 m, or an iOS visit. A stay
@@ -98,7 +98,7 @@ No personal data is in this repo. It lives in the Worker's KV namespace:
 | `file:<path>` | ticket PDFs, booking confirmations, sight guides (HTML) | local `files/` folder (git-ignored) |
 | `state` | seat history, alert state, weather cache | written by the Worker |
 | `visits` | BEEN THERE: the places, questions answered No, spots never to ask about | written by the app |
-| `track:<day>` | OwnTracks points, one key per UTC day, kept 90 days | written by OwnTracks |
+| `track:<day>` | OwnTracks points, one key per UTC day, kept for good | written by OwnTracks |
 
 `trip.example.json` shows the format. After editing `trip.json` or adding files, run:
 
