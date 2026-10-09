@@ -130,10 +130,15 @@ input:focus-visible{outline:0}
 .vadd input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);font:500 16px var(--sans);padding:6px 0}
 .vadd input::placeholder{color:var(--off)}
 .vday{font:600 11px var(--mono);letter-spacing:.06em;color:var(--muted);padding-top:10px}
-.vrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;gap:10px;align-items:center;min-height:52px;padding:4px 0;border-bottom:1px solid var(--line)}
+.vrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;gap:0 10px;align-items:center;min-height:52px;padding:4px 0;border-bottom:1px solid var(--line)}
 .vrow:has(+ .vday),.vrow:has(+ .kadd){border-bottom:0}
 .vt{font:600 13px var(--mono);color:var(--muted)}
 .vn{font-size:16px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+/* Stars: tap one to rate the place, tap the same one again to clear it. */
+.vstars{grid-column:2/-1;display:flex;margin:0 0 2px -6px}
+.vstars button{width:30px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--dim)}
+.vstars button.on{color:var(--amber)}
+.vstars svg{width:18px;height:18px;fill:currentColor}
 .seg3.seg2{grid-template-columns:1fr 1fr}
 .turl{font:500 12px/1.5 var(--mono);color:var(--text2);background:var(--raised);border-radius:10px;padding:8px 10px;word-break:break-all;-webkit-user-select:all;user-select:all}
 
@@ -741,6 +746,7 @@ function onGeoError(e) {
 // becomes a question too, or is saved on its own when one place is clearly the one.
 const FOOD_KIND = { restaurant: "Restaurant", cafe: "Café", bar: "Bar", pub: "Pub", fast_food: "Fast food", biergarten: "Beer garden",
   ice_cream: "Ice cream", food_court: "Food court", nightclub: "Club", hookah_lounge: "Hookah lounge" };
+const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z"/></svg>';
 const ASK_MS = 3 * 60000, SKIP_MS = 3 * 36e5, HERE_MS = 15 * 60000, MAX_STAY_S = 4 * 3600, SNOOZE_MS = 30 * 60000;
 const STAY_S = 5 * 60; // a stop counts from 5 minutes in one place
 const metres = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lon - b.lon) * 111320 * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180));
@@ -762,6 +768,7 @@ function visitsNow() {
       if (!v.list.some(dup)) v.list.push({ ...x, queued: true });
       else if (x.stay) v.skip.push({ k: x.stay, at: op.at });
     } else if (op.op === "del") v.list = v.list.filter((x) => x.id !== op.id);
+    else if (op.op === "rate") v.list = v.list.map((x) => (x.id === op.id ? { ...x, stars: op.stars || undefined } : x));
     else if (op.op === "skip") v.skip.push(...op.keys.map((k) => ({ k, at: op.at })));
     else if (op.op === "quiet") v.quiet.push({ lat: op.lat, lon: op.lon, at: op.at });
   }
@@ -1005,7 +1012,8 @@ function beenCard(clk) {
     const maps = x.lat != null ? gmaps(`${x.lat},${x.lon}`) : gmaps(M.stay[d] ? `${x.name}, ${M.stay[d]}` : x.name);
     const sub = [FOOD_KIND[x.kind], x.until && `until ${tashHM(Date.parse(x.until))}`, x.src === "auto" && "saved on its own", x.queued && "not sent yet"].filter(Boolean).join(" · ");
     return `<div class="vrow"><span class="vt">${tashHM(Date.parse(x.at))}</span><div><div class="vn">${esc(x.name)}</div>${sub ? `<div class="s12">${esc(sub)}</div>` : ""}</div>
-<a class="schip" href="${esc(maps)}" target="_blank" rel="noopener">Maps ↗</a><button class="kdel" data-act="v-del" data-id="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></div>`;
+<a class="schip" href="${esc(maps)}" target="_blank" rel="noopener">Maps ↗</a><button class="kdel" data-act="v-del" data-id="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button>
+<div class="vstars" role="group" aria-label="Rating for ${esc(x.name)}">${[1, 2, 3, 4, 5].map((n) => `<button class="${n <= (x.stars || 0) ? "on" : ""}" data-act="v-rate" data-id="${esc(x.id)}" data-n="${n}" aria-pressed="${n === x.stars}" aria-label="${n} star${n > 1 ? "s" : ""}">${STAR_SVG}</button>`).join("")}</div></div>`;
   };
   return `<section class="card"><div class="row lbl"><span>BEEN THERE · ${list.length}</span><button class="teal" data-act="v-here">I'M HERE</button></div>
 ${list.length ? [...days].map(([d, xs]) => `<div class="vday">${wdm(d)}${d === clk.date ? " · TODAY" : ""}</div>${xs.map((x) => row(x, d)).join("")}`).join("")
@@ -1554,6 +1562,7 @@ document.addEventListener("click", (e) => {
     case "v-cancel": endForce(); break;
     case "v-del": { const x = visitsNow().list.find((x) => x.id === id); if (x && confirm(`Remove ${x.name} from BEEN THERE?`)) visitOp({ op: "del", id }); break; }
     case "v-add": addByName(); break;
+    case "v-rate": { const x = visitsNow().list.find((x) => x.id === id), n = +el.dataset.n; if (x) visitOp({ op: "rate", id, stars: n === x.stars ? 0 : n }); break; }
     case "copy-track": copyTrackUrl(); break;
     case "ask": store.askHere = el.dataset.on === "1"; persist(); if (store.askHere) { here.at = 0; checkHere(); } render(); break;
   }

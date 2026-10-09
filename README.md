@@ -72,6 +72,8 @@ A list of the cafés, bars and restaurants we went to, in TRIP, shared by both p
   (or No) was tapped in the last 30 minutes. A place saved with coordinates is offered by name the next time you are
   there ("On your list"). TOOLS → BEEN THERE shows what the last check found.
 - **I'M HERE** in TRIP looks again at once and shows every place nearby; the box under the list adds a place by name.
+- **Stars**: each place in the list has 1–5 stars. Tap a star to rate it, tap the same star again to clear it. The
+  rating is kept with the place (`stars` in KV `visits`), so both phones see it; one given offline goes out on the next load.
 - The phone asks OpenStreetMap itself (Overpass, then Photon and a second Overpass server after 3 seconds), since the
   Worker's shared Cloudflare address runs into their per-address limits. OSM does not have every place: type it in.
 - **In the background**, with [OwnTracks](https://apps.apple.com/app/id692424691) (free): TOOLS → 1 · Install, then

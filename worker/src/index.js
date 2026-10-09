@@ -330,7 +330,7 @@ const metres = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lon - b.lon) * 
 
 // BEEN THERE, the places we have been: KV "visits", written by the app (POST /api/visits) from every phone and
 // downloaded by scripts/pull.sh. { list: [visit], skip: [{ k, at }], quiet: [{ lat, lon, at }] }. A visit:
-// { id, name, kind?, lat?, lon?, at, until?, src: here | stay | auto | manual, osm?, stay? }. skip: questions
+// { id, name, kind?, lat?, lon?, at, until?, src: here | stay | auto | manual, osm?, stay?, stars? (1–5) }. skip: questions
 // answered No ("osm:<place>" for 3 hours, "stay:<device>:<start>" for good), and stays answered Yes with a visit
 // the list already has; quiet: spots never to ask about.
 const SRCS = ["here", "stay", "auto", "manual"];
@@ -345,7 +345,8 @@ function cleanVisit(v) {
   if (lat === undefined || lon === undefined) { delete x.lat; delete x.lon; }
   return Object.fromEntries(Object.entries(x).filter(([, val]) => val !== undefined && val !== ""));
 }
-// One change per request: { op: "add", visit } | { op: "del", id } | { op: "skip", keys } | { op: "quiet", lat, lon }.
+// One change per request: { op: "add", visit } | { op: "del", id } | { op: "rate", id, stars } (0 clears it)
+// | { op: "skip", keys } | { op: "quiet", lat, lon }.
 // An add the list already has (same id or stay, or the same place within 3 hours) adds no visit, so a phone
 // can resend its queued changes, and two phones can save the same stay; only its stay is noted as answered.
 async function apiVisits(request, env) {
@@ -366,6 +367,14 @@ async function apiVisits(request, env) {
       break;
     }
     case "del": v.list = v.list.filter((y) => y.id !== op.id); break;
+    case "rate": {
+      const stars = Number.isInteger(op.stars) && op.stars >= 0 && op.stars <= 5 ? op.stars : null, i = v.list.findIndex((y) => y.id === op.id);
+      if (stars === null) return json({ error: "Stars are 0 to 5." }, 400);
+      if (i < 0) return json({ ok: true, visits: v }); // removed in the meantime
+      const { stars: _, ...y } = v.list[i];
+      v.list = v.list.with(i, stars ? { ...y, stars } : y);
+      break;
+    }
     case "skip": {
       const keys = (Array.isArray(op.keys) ? op.keys : []).map((k) => str(k, 80)).filter(Boolean).slice(0, 20);
       v.skip = [...v.skip.filter((s) => !keys.includes(s.k)), ...keys.map((k) => ({ k, at }))].slice(-400);
