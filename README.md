@@ -32,7 +32,8 @@ The app is behind a password sign-in (one account) and works offline after one v
     (transport to the next stop, for example `Taxi 4 km · 10 min`), `book`, `links` and `id` (a stable id
     for skips and done stops; else the title is used). A link can be `{ "label": "Guide", "file": "guides/x.html" }`:
     it opens `files/guides/x.html` and, like the tickets, is kept on the phone for offline use;
-  - on hotels: `phone`, `nameLocal`, `addressLocal`, `payment` (for example `50% prepaid`);
+  - on hotels: `phone`, `nameLocal`, `addressLocal`, `payment` (for example `50% prepaid`), and `lat`/`lon` for the
+    NOW card's ROUTE link to Google Maps (else it routes to the name and address);
   - on bookings: `refundUntil` (for example `2026-10-02T18:48`; else it is read from the note), `mode: "flight"`
     for a flight (it is not counted as a train), and `duration` (for example `06:00`) when the arrival is in
     another time zone;
@@ -49,11 +50,12 @@ The app is behind a password sign-in (one account) and works offline after one v
   - `maps` at the top level: the NOW map, one SVG per city, for example
     `[{ "city": "Bukhara", "file": "maps/buchara.svg", "geo": [39.7676, 39.7868, 64.3962, 64.4318], "size": [2000, 1404] }]`.
     `geo` is the map's box (south, north, west, east) in the equirectangular projection the maps are drawn in
-    (x = (lon − west) · cos(mid latitude) · s, y = (north − lat) · s), `size` its width and height in pixels, shown 1:1.
+    (x = (lon − west) · cos(mid latitude) · s, y = (north − lat) · s), `size` its width and height in pixels, shown 1:1
+    at first. + and − (or two fingers) zoom it from the whole map to 4×, and the corner button opens it full screen.
     NOW shows the map you are on (else today's city's); LOCATE starts the location watch, which runs only while NOW is
     on screen and is remembered on the phone. `pois` (optional) are the points you can tap for a note:
     `[{ "n": "Labi-Hauz", "d": "1620", "t": "One line about it.", "lat": 39.7732, "lon": 64.4206, "g": "guides/labi-hauz.html" }]`
-    (`g`, the guide it links to, is optional). The SVGs carry their own styles, since the app shows them as images;
+    (`g`, the guide it links to, is optional); a point's note also has a Route link to it in Google Maps. The SVGs carry their own styles, since the app shows them as images;
   - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
     clock until the day ends there. Every other day is in Tashkent time.

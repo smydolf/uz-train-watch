@@ -109,9 +109,21 @@ input:focus-visible{outline:0}
 .mapc .row{padding:0 6px}
 .mapc .sub{padding:0 6px;margin:0}
 .mapc .acts{display:flex;gap:14px}
-.mapbox{height:min(52vh,380px);overflow:auto;border-radius:16px;background:#1a2233;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.mapin{position:relative}
+.mapw{position:relative}
+.mapbox{height:min(52vh,380px);overflow:auto;border-radius:16px;background:#1a2233;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+/* Zoom: --z scales the map; the points, the dot and the tip are placed at map pixels × --z and keep their size. */
+.mapin{position:relative;--z:1}
 .mapin img{display:block;max-width:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.mapctl{position:absolute;z-index:3;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px}
+.mapctl button{width:42px;height:42px;border-radius:12px;background:rgba(15,16,18,.86);border:1px solid var(--dim);color:var(--text);
+  display:flex;align-items:center;justify-content:center;font:500 22px/1 var(--sans);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.mapctl button:disabled{color:var(--off)}
+.mapctl svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* Full screen: the map card covers the app, tabs included. */
+.mapfull,.mapfull body{overflow:hidden}
+.mapc.full{position:fixed;z-index:40;inset:0;border-radius:0;padding:calc(var(--st) + var(--pocket) + 10px) max(12px,var(--sr)) calc(12px + var(--sb)) max(12px,var(--sl))}
+.mapc.full .mapw{flex:1;min-height:0}
+.mapc.full .mapbox{height:100%}
 .me-dot,.me-acc{position:absolute;display:none;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
 .me-dot{width:22px;height:22px;background:#2f80ed;border:4px solid #fff;box-shadow:0 0 0 7px rgba(47,128,237,.3)}
 .me-acc{background:rgba(47,128,237,.14);border:1.5px solid rgba(47,128,237,.45)}
@@ -122,7 +134,7 @@ input:focus-visible{outline:0}
 .tip b{display:block;font-size:15px;line-height:1.25}
 .tip span{display:block;font:600 11px var(--mono);color:var(--amber);margin-top:3px}
 .tip p{margin:6px 0 0;color:var(--text2)}
-.tip a{display:inline-block;margin-top:8px;font:600 12px var(--mono);color:var(--teal)}
+.tip a{display:inline-block;margin:8px 14px 0 0;font:600 12px var(--mono);color:var(--teal)}
 /* BEEN THERE: "Are you here?" on NOW and TRIP, the list in TRIP */
 .ask{border:1px solid rgba(45,212,191,.33);gap:8px}
 .ask .chips{margin-top:2px}
@@ -356,6 +368,9 @@ const isFlight = (b) => b.mode === "flight";
 const trainsOf = (t) => t.bookings.filter((b) => !isFlight(b));
 const tashHM = (ms) => tashIso(ms).slice(11, 16);
 const gmaps = (q) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+// Directions from where you are to a place ("lat,lng" or a search), in Google Maps.
+const gdir = (q) => "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(q);
+const hotelDir = (h) => gdir(h.lat != null && h.lon != null ? `${h.lat},${h.lon}` : [h.name, h.address || h.city].filter(Boolean).join(", "));
 const fileUrl = (f) => "/files/" + encodeURIComponent(f);
 const fmt = (n) => Math.round(n).toLocaleString("en");
 const plain = (s) => String(s ?? "").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").trim();
@@ -432,7 +447,7 @@ function toggleSlip(id) {
 
 let data = null, M = null, lastText = "";
 let drag = null; // a stop being dragged in DAY
-const ui = { tab: "now", day: null, openDay: null, notes: new Set(), kitEdit: false, kitDraft: "", uzs: 425000, slipsOpen: false,
+const ui = { tab: "now", mapFull: false, day: null, openDay: null, notes: new Set(), kitEdit: false, kitDraft: "", uzs: 425000, slipsOpen: false,
   vOther: false, vName: "", vAdd: "", copied: false, login: { user: "", pass: "", show: false, err: "", busy: false } };
 
 // ---- Trip model ----
@@ -644,11 +659,55 @@ function geoText(m) {
   return `You are the blue dot · ±${geo.fix.acc < 1000 ? `${Math.max(5, Math.round(geo.fix.acc / 5) * 5)} m` : `${(geo.fix.acc / 1000).toFixed(1)} km`}`;
 }
 const geoActs = () => (store.geoOn ? '<button class="teal" data-act="geo">CENTER</button><button class="teal" data-act="geo-off">OFF</button>' : '<button class="teal" data-act="geo">LOCATE</button>');
+const FULL_ICON = { on: '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+  off: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>' };
 function mapCard(city) {
-  const m = mapFor(city);
+  const m = mapFor(city), full = ui.mapFull;
   if (!m) return "";
-  return `<section class="card mapc"><div class="row lbl"><span>MAP · ${esc(String(m.city).toUpperCase())}</span><span class="acts" id="geo-acts">${geoActs()}</span></div>
-<div class="sub" id="geo-state">${esc(geoText(m))}</div><div id="mapslot" data-file="${esc(m.file)}"></div></section>`;
+  return `<section class="card mapc${full ? " full" : ""}"><div class="row lbl"><span>MAP · ${esc(String(m.city).toUpperCase())}</span><span class="acts" id="geo-acts">${geoActs()}</span></div>
+<div class="sub" id="geo-state">${esc(geoText(m))}</div><div class="mapw"><div id="mapslot" data-file="${esc(m.file)}"></div>
+<div class="mapctl"><button data-act="map-zoom" data-d="1" aria-label="Zoom in">+</button><button data-act="map-zoom" data-d="-1" aria-label="Zoom out">−</button>
+<button data-act="map-full" aria-label="${full ? "Close full screen" : "Full screen"}">${full ? FULL_ICON.off : FULL_ICON.on}</button></div></div></section>`;
+}
+// A length in map pixels, scaled by the zoom.
+const zpx = (v) => `calc(${v.toFixed(1)}px * var(--z))`;
+// From the whole map in the box (or 1:1 if it is smaller) to 4×.
+const zoomLim = (m, el) => [Math.min(1, el.clientWidth / m.size[0], el.clientHeight / m.size[1]), 4];
+// Zoom to z, keeping the map point "at" (by default the one under (cx, cy) in the box, its centre) at (cx, cy).
+function zoomMap(m, el, z, cx = el.clientWidth / 2, cy = el.clientHeight / 2, at) {
+  const [lo, hi] = zoomLim(m, el), z0 = el._z || 1;
+  const [mx, my] = at || [(el.scrollLeft + cx) / z0, (el.scrollTop + cy) / z0];
+  el._z = Math.min(hi, Math.max(lo, z));
+  el.firstChild.style.setProperty("--z", el._z);
+  el.scrollLeft = mx * el._z - cx; el.scrollTop = my * el._z - cy;
+  el.querySelector(".tip").hidden = true; el.querySelector(".poi.on")?.classList.remove("on");
+  geo.touched = Date.now();
+  drawDot(); mapBtns(m, el);
+}
+function mapBtns(m, el) {
+  const [lo, hi] = zoomLim(m, el), z = el._z || 1, ctl = el.parentNode?.querySelector(".mapctl");
+  if (!ctl) return;
+  ctl.querySelector('[data-d="1"]').disabled = z >= hi - 1e-3;
+  ctl.querySelector('[data-d="-1"]').disabled = z <= lo + 1e-3;
+}
+// Two fingers zoom the map, not the page.
+function pinchMap(m, el) {
+  let pin = null;
+  const mid = (e) => { const [a, b] = e.touches, r = el.getBoundingClientRect();
+    return { x: (a.clientX + b.clientX) / 2 - r.left, y: (a.clientY + b.clientY) / 2 - r.top, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) }; };
+  el.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 2) { pin = null; return; }
+    const p = mid(e), z = el._z || 1;
+    pin = { d: p.d || 1, z, at: [(el.scrollLeft + p.x) / z, (el.scrollTop + p.y) / z] };
+  }, { passive: true });
+  el.addEventListener("touchmove", (e) => {
+    if (!pin || e.touches.length !== 2) return;
+    e.preventDefault();
+    const p = mid(e);
+    zoomMap(m, el, pin.z * p.d / pin.d, p.x, p.y, pin.at);
+  }, { passive: false });
+  el.addEventListener("touchend", (e) => { if (e.touches.length < 2) pin = null; });
+  el.addEventListener("gesturestart", (e) => e.preventDefault()); // Safari's own pinch
 }
 // Each point in the map's "pois" gets an invisible tap target; a tap shows its name, date, a line about it and its guide.
 function mapEl(m) {
@@ -657,11 +716,13 @@ function mapEl(m) {
   const el = document.createElement("div"), [W, H] = m.size;
   el.className = "mapbox"; el.id = "mapbox"; el.dataset.file = m.file; el._sig = sig;
   if (old) { el._l = old.isConnected ? old.scrollLeft : old._l; el._t = old.isConnected ? old.scrollTop : old._t; } else el.dataset.fresh = "1";
+  el._z = old?._z || 1;
   const pois = (m.pois || []).map((p, i) => {
     const q = mapXY(m, p.lat, p.lon);
-    return q.x >= 0 && q.y >= 0 && q.x <= W && q.y <= H ? `<button class="poi" data-i="${i}" style="left:${q.x.toFixed(1)}px;top:${q.y.toFixed(1)}px" aria-label="${esc(p.n)}"></button>` : "";
+    return q.x >= 0 && q.y >= 0 && q.x <= W && q.y <= H ? `<button class="poi" data-i="${i}" style="left:${zpx(q.x)};top:${zpx(q.y)}" aria-label="${esc(p.n)}"></button>` : "";
   }).join("");
-  el.innerHTML = `<div class="mapin" style="width:${W}px;height:${H}px"><img src="${esc(fileUrl(m.file))}" width="${W}" height="${H}" alt="Map of ${esc(m.city)}" draggable="false">${pois}<i class="me-acc"></i><i class="me-dot"></i><div class="tip" hidden></div></div>`;
+  el.innerHTML = `<div class="mapin" style="--z:${el._z};width:${zpx(W)};height:${zpx(H)}"><img src="${esc(fileUrl(m.file))}" width="${W}" height="${H}" style="width:100%;height:100%" alt="Map of ${esc(m.city)}" draggable="false">${pois}<i class="me-acc"></i><i class="me-dot"></i><div class="tip" hidden></div></div>`;
+  pinchMap(m, el);
   el.addEventListener("scroll", () => { if (el._at?.[0] !== el.scrollLeft || el._at?.[1] !== el.scrollTop) geo.touched = Date.now(); }, { passive: true });
   el.addEventListener("click", (e) => poiTip(m, el, e));
   mapEls[m.file] = el;
@@ -672,13 +733,15 @@ function poiTip(m, el, e) {
   if (e.target.closest(".tip")) return;
   el.querySelector(".poi.on")?.classList.remove("on");
   if (!b) { tip.hidden = true; return; }
-  const p = m.pois[+b.dataset.i], q = mapXY(m, p.lat, p.lon), half = 128;
+  const p = m.pois[+b.dataset.i], z = el._z || 1, q = mapXY(m, p.lat, p.lon), x = q.x * z, y = q.y * z, half = 128;
   b.classList.add("on");
-  tip.innerHTML = `<b>${esc(p.n)}</b>${p.d ? `<span>${esc(p.d)}</span>` : ""}<p>${esc(p.t)}</p>${p.g ? `<a href="${esc(fileUrl(p.g))}" target="_blank" rel="noopener">Guide ↗</a>` : ""}`;
-  const below = q.y < 170;
+  tip.innerHTML = `<b>${esc(p.n)}</b>${p.d ? `<span>${esc(p.d)}</span>` : ""}<p>${esc(p.t)}</p>`
+    + `<a href="${esc(gdir(`${p.lat},${p.lon}`))}" target="_blank" rel="noopener">Route ↗</a>`
+    + (p.g ? `<a href="${esc(fileUrl(p.g))}" target="_blank" rel="noopener">Guide ↗</a>` : "");
+  const below = y < 170;
   tip.classList.toggle("below", below);
-  tip.style.left = `${Math.min(Math.max(q.x, half), m.size[0] - half)}px`;
-  tip.style.top = `${below ? q.y + 24 : q.y - 24}px`;
+  tip.style.left = `${Math.min(Math.max(x, half), m.size[0] * z - half)}px`;
+  tip.style.top = `${below ? y + 24 : y - 24}px`;
   tip.hidden = false;
   // Scroll just enough to show the whole tip.
   const r = tip.getBoundingClientRect(), box = el.getBoundingClientRect();
@@ -690,8 +753,8 @@ function poiTip(m, el, e) {
 // Scrolled by the app (centring, or back to where it was after a render), not by a finger, so not a touch.
 function scrollMap(el, left, top) { el.scrollLeft = left; el.scrollTop = top; el._at = [el.scrollLeft, el.scrollTop]; }
 function centreMap(m, el) {
-  const p = geo.fix && onMap(m, geo.fix) ? mapXY(m, geo.fix.lat, geo.fix.lon) : { x: m.size[0] / 2, y: m.size[1] / 2 };
-  scrollMap(el, p.x - el.clientWidth / 2, p.y - el.clientHeight / 2);
+  const p = geo.fix && onMap(m, geo.fix) ? mapXY(m, geo.fix.lat, geo.fix.lon) : { x: m.size[0] / 2, y: m.size[1] / 2 }, z = el._z || 1;
+  scrollMap(el, p.x * z - el.clientWidth / 2, p.y * z - el.clientHeight / 2);
 }
 function drawDot() {
   const el = document.getElementById("mapbox"), m = el && shownMap();
@@ -700,8 +763,8 @@ function drawDot() {
   dot.style.display = acc.style.display = show ? "block" : "none";
   if (show) {
     const p = mapXY(m, geo.fix.lat, geo.fix.lon), d = Math.min(2 * geo.fix.acc * p.m2px, 2 * m.size[0]);
-    dot.style.left = acc.style.left = `${p.x}px`; dot.style.top = acc.style.top = `${p.y}px`;
-    acc.style.width = acc.style.height = `${d}px`;
+    dot.style.left = acc.style.left = zpx(p.x); dot.style.top = acc.style.top = zpx(p.y);
+    acc.style.width = acc.style.height = zpx(d);
   }
   const st = document.getElementById("geo-state"), acts = document.getElementById("geo-acts");
   if (st) st.textContent = geoText(m);
@@ -709,10 +772,12 @@ function drawDot() {
 }
 function mapAfterRender() {
   const slot = document.getElementById("mapslot"), m = slot && (M.t.maps || []).find((x) => x.file === slot.dataset.file);
+  document.documentElement.classList.toggle("mapfull", !!(m && ui.mapFull));
   if (!m) { geoStop(); return; }
   const el = mapEl(m);
   slot.replaceWith(el);
   if (el.dataset.fresh) { delete el.dataset.fresh; centreMap(m, el); } else scrollMap(el, el._l, el._t);
+  mapBtns(m, el);
   drawDot();
   geoResume();
 }
@@ -1172,7 +1237,8 @@ function tonightCard(clk) {
   const h = t.hotels.find((h) => h.checkIn <= date && date < h.checkOut);
   if (h) {
     return `<section class="card tonight"><div><div class="lbl">TONIGHT · HOTEL</div><div class="t20">${esc(h.name)}</div>
-<div class="sub">${esc(h.city || "")}${date === h.checkIn && h.checkInTime ? ` · check-in ${esc(h.checkInTime)}` : ""}</div></div><a class="qr" href="#tools">SHOW<br>DRIVER</a></section>`;
+<div class="sub">${esc(h.city || "")}${date === h.checkIn && h.checkInTime ? ` · check-in ${esc(h.checkInTime)}` : ""}</div>
+<div class="chips"><a class="chip" href="${esc(hotelDir(h))}" target="_blank" rel="noopener">ROUTE ↗</a></div></div><a class="qr" href="#tools">SHOW<br>DRIVER</a></section>`;
   }
   const g = M.gaps.find((g) => g.from <= date && date < g.to);
   if (g) return `<section class="card tonight gapc"><div><div class="lbl amber">TONIGHT · NO HOTEL</div><div class="t20">Not booked</div><div class="sub">${esc(g.city)} · ${rangeT(g.from, g.to)}. See TRIP.</div></div></section>`;
@@ -1541,6 +1607,17 @@ document.addEventListener("click", (e) => {
       drawDot();
       break;
     }
+    case "map-zoom": { const m = shownMap(), box = document.getElementById("mapbox"); if (m && box) zoomMap(m, box, (box._z || 1) * (el.dataset.d === "1" ? 1.5 : 1 / 1.5)); break; }
+    case "map-full": {
+      // Keep the same spot in the middle of the map as it grows or shrinks.
+      const old = document.getElementById("mapbox"), z = old?._z || 1;
+      const at = old && [(old.scrollLeft + old.clientWidth / 2) / z, (old.scrollTop + old.clientHeight / 2) / z];
+      old?.querySelector(".tip").setAttribute("hidden", ""); old?.querySelector(".poi.on")?.classList.remove("on");
+      ui.mapFull = !ui.mapFull; render();
+      const box = document.getElementById("mapbox");
+      if (at && box) scrollMap(box, at[0] * z - box.clientWidth / 2, at[1] * z - box.clientHeight / 2);
+      break;
+    }
     case "geo-off": store.geoOn = false; save(); geoStop(); geo.fix = null; geo.err = ""; drawDot(); break;
     case "v-yes": { const p = shownQ?.cands[+el.dataset.i]; if (p) answerYes(shownQ, { name: p.n, kind: p.k, lat: p.lat, lon: p.lon, osm: p.id.startsWith("own:") ? undefined : p.id }); break; }
     case "v-no": {
@@ -1685,7 +1762,7 @@ document.addEventListener("touchend", (e) => {
   if (next) location.hash = `#day/${next}`;
 }, { passive: true });
 
-window.addEventListener("hashchange", () => { readHash(); render(); window.scrollTo(0, 0); });
+window.addEventListener("hashchange", () => { readHash(); ui.mapFull = false; render(); window.scrollTo(0, 0); });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { geoStop(); return; }
   if (M) { tick(); loadData(false); geoResume(); }
