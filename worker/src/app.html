@@ -135,6 +135,12 @@ input:focus-visible{outline:0}
 .tip span{display:block;font:600 11px var(--mono);color:var(--amber);margin-top:3px}
 .tip p{margin:6px 0 0;color:var(--text2)}
 .tip a{display:inline-block;margin:8px 14px 0 0;font:600 12px var(--mono);color:var(--teal)}
+/* SEEN: a ticked point gets a green ring round its pin and a tick, both sized with the map (pins are about 16 map px). */
+.tip .seen{display:block;margin-top:10px;padding:7px 12px;border-radius:10px;border:1px solid var(--dim);font:600 12px var(--mono);color:var(--teal)}
+.tip .seen.on{background:#2fb36b;border-color:#2fb36b;color:#fff}
+.poi.seen::before,.poi.seen::after{content:"";position:absolute;left:50%;top:50%;border-radius:50%;pointer-events:none}
+.poi.seen::before{width:calc(40px * var(--z));height:calc(40px * var(--z));transform:translate(-50%,-50%);box-shadow:0 0 0 3px #2fb36b}
+.poi.seen::after{width:18px;height:18px;margin:calc(-13px * var(--z) - 9px) 0 0 calc(13px * var(--z) - 9px);background:#2fb36b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M4.5 9.2l3 3.1 6-6.4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");box-shadow:0 0 0 2px #1a2233}
 /* BEEN THERE: "Are you here?" on NOW and TRIP, the list in TRIP */
 .ask{border:1px solid rgba(45,212,191,.33);gap:8px}
 .ask .chips{margin-top:2px}
@@ -709,7 +715,8 @@ function pinchMap(m, el) {
   el.addEventListener("touchend", (e) => { if (e.touches.length < 2) pin = null; });
   el.addEventListener("gesturestart", (e) => e.preventDefault()); // Safari's own pinch
 }
-// Each point in the map's "pois" gets an invisible tap target; a tap shows its name, date, a line about it and its guide.
+// Each point in the map's "pois" gets an invisible tap target; a tap shows its name, date, a line about it, its guide
+// and SEEN, which ticks the point for both phones (KV "visits", seen["<city>/<point name>"]): a ring and a tick on the map.
 function mapEl(m) {
   const sig = JSON.stringify(m), old = mapEls[m.file];
   if (old?._sig === sig) return old;
@@ -728,6 +735,14 @@ function mapEl(m) {
   mapEls[m.file] = el;
   return el;
 }
+const seenKey = (m, p) => `${m.city}/${p.n}`;
+// The ticks on the map and the SEEN button in an open note, from the list with this phone's unsent changes.
+function seenMarks(m, el) {
+  const seen = visitsNow().seen;
+  el.querySelectorAll(".poi").forEach((b) => b.classList.toggle("seen", !!seen[seenKey(m, m.pois[+b.dataset.i])]));
+  const btn = el.querySelector(".tip .seen");
+  if (btn) { const on = !!seen[btn.dataset.k]; btn.classList.toggle("on", on); btn.textContent = on ? "✓ SEEN · TAP TO UNDO" : "MARK AS SEEN"; }
+}
 function poiTip(m, el, e) {
   const b = e.target.closest(".poi"), tip = el.querySelector(".tip");
   if (e.target.closest(".tip")) return;
@@ -737,7 +752,9 @@ function poiTip(m, el, e) {
   b.classList.add("on");
   tip.innerHTML = `<b>${esc(p.n)}</b>${p.d ? `<span>${esc(p.d)}</span>` : ""}<p>${esc(p.t)}</p>`
     + `<a href="${esc(gdir(`${p.lat},${p.lon}`))}" target="_blank" rel="noopener">Route ↗</a>`
-    + (p.g ? `<a href="${esc(fileUrl(p.g))}" target="_blank" rel="noopener">Guide ↗</a>` : "");
+    + (p.g ? `<a href="${esc(fileUrl(p.g))}" target="_blank" rel="noopener">Guide ↗</a>` : "")
+    + `<button class="seen" data-act="seen" data-k="${esc(seenKey(m, p))}"></button>`;
+  seenMarks(m, el);
   const below = y < 170;
   tip.classList.toggle("below", below);
   tip.style.left = `${Math.min(Math.max(x, half), m.size[0] * z - half)}px`;
@@ -778,6 +795,7 @@ function mapAfterRender() {
   slot.replaceWith(el);
   if (el.dataset.fresh) { delete el.dataset.fresh; centreMap(m, el); } else scrollMap(el, el._l, el._t);
   mapBtns(m, el);
+  seenMarks(m, el);
   drawDot();
   geoResume();
 }
@@ -826,7 +844,7 @@ let stays = [], shownQ = null, sending = false, visitsRev = 0;
 // The list as the server has it, with the changes still waiting on this phone. An add the list has already (the
 // server's rule: same id or stay, or the same place within 3 hours) adds no visit; its stay counts as answered.
 function visitsNow() {
-  const s = data?.visits || {}, v = { list: [...(s.list || [])], skip: [...(s.skip || [])], quiet: [...(s.quiet || [])] };
+  const s = data?.visits || {}, v = { list: [...(s.list || [])], skip: [...(s.skip || [])], quiet: [...(s.quiet || [])], seen: { ...s.seen } };
   for (const op of store.vq) {
     if (op.op === "add") {
       const x = op.visit, dup = (y) => y.id === x.id || (x.stay && y.stay === x.stay) || (x.osm && y.osm === x.osm && Math.abs(Date.parse(y.at) - Date.parse(x.at)) < 3 * 36e5);
@@ -836,6 +854,7 @@ function visitsNow() {
     else if (op.op === "rate") v.list = v.list.map((x) => (x.id === op.id ? { ...x, stars: op.stars || undefined } : x));
     else if (op.op === "skip") v.skip.push(...op.keys.map((k) => ({ k, at: op.at })));
     else if (op.op === "quiet") v.quiet.push({ lat: op.lat, lon: op.lon, at: op.at });
+    else if (op.op === "seen") { if (op.on) v.seen[op.key] = op.at; else delete v.seen[op.key]; }
   }
   return v;
 }
@@ -1640,6 +1659,7 @@ document.addEventListener("click", (e) => {
     case "v-del": { const x = visitsNow().list.find((x) => x.id === id); if (x && confirm(`Remove ${x.name} from BEEN THERE?`)) visitOp({ op: "del", id }); break; }
     case "v-add": addByName(); break;
     case "v-rate": { const x = visitsNow().list.find((x) => x.id === id), n = +el.dataset.n; if (x) visitOp({ op: "rate", id, stars: n === x.stars ? 0 : n }); break; }
+    case "seen": visitOp({ op: "seen", key: el.dataset.k, on: !visitsNow().seen[el.dataset.k] }); break;
     case "copy-track": copyTrackUrl(); break;
     case "ask": store.askHere = el.dataset.on === "1"; persist(); if (store.askHere) { here.at = 0; checkHere(); } render(); break;
   }

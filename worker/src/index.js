@@ -332,10 +332,10 @@ const metres = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lon - b.lon) * 
 // downloaded by scripts/pull.sh. { list: [visit], skip: [{ k, at }], quiet: [{ lat, lon, at }] }. A visit:
 // { id, name, kind?, lat?, lon?, at, until?, src: here | stay | auto | manual, osm?, stay?, stars? (1–5) }. skip: questions
 // answered No ("osm:<place>" for 3 hours, "stay:<device>:<start>" for good), and stays answered Yes with a visit
-// the list already has; quiet: spots never to ask about.
+// the list already has; quiet: spots never to ask about; seen: the map points ticked SEEN, { "<city>/<point name>": at }.
 const SRCS = ["here", "stay", "auto", "manual"];
 async function loadVisits(env) {
-  return { list: [], skip: [], quiet: [], ...((await env.STATE.get("visits", "json")) ?? {}) };
+  return { list: [], skip: [], quiet: [], seen: {}, ...((await env.STATE.get("visits", "json")) ?? {}) };
 }
 function cleanVisit(v) {
   const name = str(v?.name, 120), lat = num(v?.lat, 90), lon = num(v?.lon, 180);
@@ -346,7 +346,7 @@ function cleanVisit(v) {
   return Object.fromEntries(Object.entries(x).filter(([, val]) => val !== undefined && val !== ""));
 }
 // One change per request: { op: "add", visit } | { op: "del", id } | { op: "rate", id, stars } (0 clears it)
-// | { op: "skip", keys } | { op: "quiet", lat, lon }.
+// | { op: "skip", keys } | { op: "quiet", lat, lon } | { op: "seen", key, on } (a map point ticked or unticked).
 // An add the list already has (same id or stay, or the same place within 3 hours) adds no visit, so a phone
 // can resend its queued changes, and two phones can save the same stay; only its stay is noted as answered.
 async function apiVisits(request, env) {
@@ -384,6 +384,13 @@ async function apiVisits(request, env) {
       const lat = num(op.lat, 90), lon = num(op.lon, 180);
       if (lat === undefined || lon === undefined) return json({ error: "A spot needs lat and lon." }, 400);
       v.quiet = [...v.quiet, { lat, lon, at }].slice(-100);
+      break;
+    }
+    case "seen": {
+      const key = str(op.key, 160);
+      if (!key) return json({ error: "A point needs a key." }, 400);
+      const { [key]: _, ...seen } = v.seen;
+      v.seen = op.on ? Object.fromEntries(Object.entries({ ...seen, [key]: at }).slice(-500)) : seen;
       break;
     }
     default: return json({ error: "Unknown change." }, 400);

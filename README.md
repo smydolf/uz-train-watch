@@ -55,7 +55,9 @@ The app is behind a password sign-in (one account) and works offline after one v
     NOW shows the map you are on (else today's city's); LOCATE starts the location watch, which runs only while NOW is
     on screen and is remembered on the phone. `pois` (optional) are the points you can tap for a note:
     `[{ "n": "Labi-Hauz", "d": "1620", "t": "One line about it.", "lat": 39.7732, "lon": 64.4206, "g": "guides/labi-hauz.html" }]`
-    (`g`, the guide it links to, is optional); a point's note also has a Route link to it in Google Maps. The SVGs carry their own styles, since the app shows them as images;
+    (`g`, the guide it links to, is optional); a point's note also has a Route link to it in Google Maps, and SEEN, which ticks
+    the point for both phones: a green ring and a tick on the map (KV `visits`, `seen["<city>/<point name>"]`, so renaming a
+    point drops its tick). The SVGs carry their own styles, since the app shows them as images;
   - `zones` at the top level: the UTC offset of days spent outside Uzbekistan, for example
     `{ "2026-10-01": "+02:00" }` for the flight day in Poland. That day's times are local, and the app runs on that
     clock until the day ends there. Every other day is in Tashkent time.
@@ -101,7 +103,7 @@ No personal data is in this repo. It lives in the Worker's KV namespace:
 | `trip` | bookings, hotels, day plan, watched trains, registration slips | local `trip.json` (git-ignored) |
 | `file:<path>` | ticket PDFs, booking confirmations, sight guides (HTML) | local `files/` folder (git-ignored) |
 | `state` | seat history, alert state, weather cache | written by the Worker |
-| `visits` | BEEN THERE: the places, questions answered No, spots never to ask about | written by the app |
+| `visits` | BEEN THERE: the places, questions answered No, spots never to ask about; the map points ticked SEEN | written by the app |
 | `track:<day>` | OwnTracks points, one key per UTC day, kept for good | written by OwnTracks |
 
 `trip.example.json` shows the format. After editing `trip.json` or adding files, run:
