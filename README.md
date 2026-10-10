@@ -3,7 +3,8 @@
 A small trip companion for a rail trip through Uzbekistan, running as one Cloudflare Worker:
 
 - **Seat watcher**: every 5 minutes it checks eticket.uzrailpass.uz for the trains you watch and sends
-  Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats).
+  Telegram alerts when seats appear, and low-seat warnings (below 10 and 6 seats). With no watched trains (an empty
+  `watch` in `trip.json`) it is off: the 5-minute run then only refreshes the weather and exchange rates.
 - **/app**: the phone app, with 4 tabs. `/` and the old `/trip` and `/guide` links open it.
   - **NOW** shows what to do now and next, the guides as tiles (the city guide first, then the next stops' guides),
     the city map with a "you are here" dot, tonight's train or hotel, and the stops left today. Near a café, bar or

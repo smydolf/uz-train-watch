@@ -466,9 +466,15 @@ export default {
   async scheduled(event, env, ctx) {
     const [state, trip] = await Promise.all([loadState(env), loadTrip(env)]);
     const at = new Date().toISOString();
-    await refreshChats(env, state).catch((e) => console.error("refreshChats", e));
     await refreshWeather(state, trip).catch((e) => console.error("refreshWeather", e));
     await refreshRates(state).catch((e) => console.error("refreshRates", e));
+    // No watched trains: the seat watcher is off (no railway or Telegram calls), the run only keeps weather and rates fresh.
+    if (!trip.legs.length) {
+      await env.STATE.put("state", JSON.stringify({ seats: {}, trains: {}, notified: {}, low: {}, soldOut: {}, telegramChats: state.telegramChats, weather: state.weather, rates: state.rates, errors: 0,
+        last: { at, ok: true, summary: "no trains watched" } }));
+      return;
+    }
+    await refreshChats(env, state).catch((e) => console.error("refreshChats", e));
     try {
       const r = await check(env, state, trip);
       console.log(r.summary, r.warnings);

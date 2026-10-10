@@ -1458,7 +1458,7 @@ ${sosTiles()}${insuranceCards()}${driverCard(clk)}${beenTools()}
 <section class="card"><div class="row lbl"><span>NAVIGATION</span><span>${navBottom() ? "BOTTOM TABS" : "TOP TABS"}</span></div>
 <div class="seg3">${[["auto", "AUTO"], ["top", "TOP"], ["bottom", "BOTTOM"]].map(([m, l]) => `<button class="${store.navMode === m ? "on" : ""}" data-act="nav" data-mode="${m}" aria-pressed="${store.navMode === m}">${l}</button>`).join("")}</div>
 <div class="s13">Auto: bottom tabs when you open the app from the Home Screen, top tabs in Safari.</div></section>
-<div class="foot">${data.last?.at ? `Seats and weather checked ${tashHM(Date.parse(data.last.at))}` : "No seat check yet"} · Tashkent time (UTC+5)<br>
+<div class="foot">${data.last?.at ? `${data.watch?.length ? "Seats and weather" : "Weather"} checked ${tashHM(Date.parse(data.last.at))}` : "No seat check yet"} · Tashkent time (UTC+5)<br>
 <button data-act="logout">Sign out</button></div>`;
 }
 
